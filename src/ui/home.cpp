@@ -2,6 +2,7 @@
 
 #include "assets.h"
 #include "gif_player.h"
+#include "spotify_ui.h"
 #include "sd_browser.h"
 #include "theme.h"
 
@@ -47,6 +48,13 @@ static void open_gif_player_cb(lv_event_t *event)
 {
     if(lv_event_get_code(event) == LV_EVENT_CLICKED) {
         gif_player::show_list();
+    }
+}
+
+static void open_spotify_cb(lv_event_t *event)
+{
+    if(lv_event_get_code(event) == LV_EVENT_CLICKED) {
+        ui_spotify_show();
     }
 }
 
@@ -134,7 +142,7 @@ void show()
     lv_obj_set_style_pad_row(menu, 7, 0);
 
     create_menu_button(menu, LV_SYMBOL_VIDEO "  GIF PLAYER", true, open_gif_player_cb);
-    create_menu_button(menu, "SPOTIFY  /  COMING SOON", false, nullptr);
+    create_menu_button(menu, LV_SYMBOL_AUDIO "  SPOTIFY", true, open_spotify_cb);
     create_menu_button(menu, "MP3  /  COMING SOON", false, nullptr);
     create_menu_button(menu, "CONFIGURACOES  /  COMING SOON", false, nullptr);
     create_menu_button(menu, "SOBRE  /  COMING SOON", false, nullptr);

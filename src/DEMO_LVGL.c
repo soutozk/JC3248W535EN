@@ -4,6 +4,7 @@
 #include "esp_bsp.h"
 #include "lv_port.h"
 #include "ui/app_ui.h"
+#include "spotify_ble.h"
 #include <esp_log.h>   // Add this line to include the header file that declares ESP_LOGI
 #include <esp_flash.h> // Add this line to include the header file that declares esp_flash_t
 #include <esp_chip_info.h>
@@ -94,6 +95,9 @@ void setup()
 
   bsp_display_start_with_config(&cfg);
   bsp_display_backlight_on();
+
+  logSection("Initialize Spotify BLE");
+  spotify_ble_init();
 
   logSection("Create UI");
   /* Lock the mutex due to the LVGL APIs are not thread-safe */
