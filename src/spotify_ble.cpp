@@ -169,7 +169,7 @@ static UINT tjpgd_output_cb(JDEC *decoder, void *bitmap, JRECT *rect)
 {
     JpegDecodeContext *ctx = (JpegDecodeContext *)decoder->device;
     uint16_t *dst = (uint16_t *)ctx->output_rgb565;
-    uint16_t *src = (uint16_t *)bitmap;
+    uint8_t *src = (uint8_t *)bitmap;
     int dst_w = SPOTIFY_COVER_SIZE; // 300
     
     int rect_w = rect->right - rect->left + 1;
@@ -180,10 +180,17 @@ static UINT tjpgd_output_cb(JDEC *decoder, void *bitmap, JRECT *rect)
             int out_x = rect->left + x;
             int out_y = rect->top + y;
             if (out_x < dst_w && out_y < dst_w) {
-                uint16_t color = src[y * rect_w + x];
-                // Swap bytes for LVGL big-endian compatibility
-                uint16_t swapped = (color >> 8) | (color << 8);
-                dst[out_y * dst_w + out_x] = swapped;
+                int src_idx = (y * rect_w + x) * 3;
+                uint8_t r = src[src_idx + 0];
+                uint8_t g = src[src_idx + 1];
+                uint8_t b = src[src_idx + 2];
+
+                uint16_t color = ((uint16_t)(r & 0xf8) << 8) |
+                                 ((uint16_t)(g & 0xfc) << 3) |
+                                 ((uint16_t)b >> 3);
+
+                // LV_COLOR_16_SWAP is enabled in lv_conf.h for this display.
+                dst[out_y * dst_w + out_x] = (color >> 8) | (color << 8);
             }
         }
     }
@@ -198,6 +205,7 @@ static void decode_jpeg(const uint8_t *jpeg_data, uint32_t jpeg_len)
     }
 
     ESP_LOGI(TAG, "Decoding JPEG image (%ld bytes)...", jpeg_len);
+    memset(s_cover_rgb565_buf, 0x1f, SPOTIFY_COVER_SIZE * SPOTIFY_COVER_SIZE * 2);
 
     // TJpgDec requires ~3100 bytes work buffer
     const size_t work_buf_size = 4096;

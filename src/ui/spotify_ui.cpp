@@ -10,9 +10,16 @@ namespace ui {
 namespace spotify {
 
 static lv_obj_t *s_screen = nullptr;
+static lv_obj_t *s_decor_layer = nullptr;
 static lv_obj_t *s_header = nullptr;
 static lv_obj_t *s_img_cover = nullptr;
 static lv_obj_t *s_info_panel = nullptr;
+static lv_obj_t *s_vu_layer = nullptr;
+static lv_obj_t *s_stage_layer = nullptr;
+static lv_obj_t *s_stage_cover = nullptr;
+static lv_obj_t *s_stage_shadow = nullptr;
+static lv_obj_t *s_stage_title = nullptr;
+static lv_obj_t *s_stage_artist = nullptr;
 
 static lv_obj_t *s_title_lbl = nullptr;
 static lv_obj_t *s_artist_lbl = nullptr;
@@ -22,13 +29,25 @@ static lv_obj_t *s_btn_play = nullptr;
 static lv_obj_t *s_btn_play_lbl = nullptr;
 
 static lv_timer_t *s_update_timer = nullptr;
-static bool s_fullscreen = false;
+
+enum class ViewMode {
+    Normal = 0,
+    CoverOnly,
+    CoverVu,
+    SideVu,
+};
+
+static ViewMode s_view_mode = ViewMode::Normal;
+static constexpr int kVuBarCount = 22;
+static lv_obj_t *s_vu_bars[kVuBarCount] = {};
+static uint8_t s_vu_phase = 0;
 
 // Custom image descriptor pointing to the BLE raw RGB565 cover buffer
 static lv_img_dsc_t s_cover_dsc = {
     .header = {
         .cf = LV_IMG_CF_TRUE_COLOR,
         .always_zero = 0,
+        .reserved = 0,
         .w = SPOTIFY_COVER_SIZE,
         .h = SPOTIFY_COVER_SIZE
     },
@@ -48,52 +67,261 @@ static void cleanup_cb(lv_event_t *event)
         s_update_timer = nullptr;
     }
     s_screen = nullptr;
+    s_decor_layer = nullptr;
     s_header = nullptr;
     s_img_cover = nullptr;
     s_info_panel = nullptr;
+    s_vu_layer = nullptr;
+    s_stage_layer = nullptr;
+    s_stage_cover = nullptr;
+    s_stage_shadow = nullptr;
+    s_stage_title = nullptr;
+    s_stage_artist = nullptr;
     s_title_lbl = nullptr;
     s_artist_lbl = nullptr;
     s_status_lbl = nullptr;
     s_btn_play = nullptr;
     s_btn_play_lbl = nullptr;
-    s_fullscreen = false;
+    s_view_mode = ViewMode::Normal;
+    memset(s_vu_bars, 0, sizeof(s_vu_bars));
+    s_vu_phase = 0;
     memset(s_last_title, 0, sizeof(s_last_title));
     memset(s_last_artist, 0, sizeof(s_last_artist));
     s_last_connected = false;
+}
+
+static void set_cover_chrome(bool enabled)
+{
+    if (s_img_cover == nullptr) return;
+
+    if (enabled) {
+        lv_obj_set_style_border_color(s_img_cover, theme::colors().cyan, 0);
+        lv_obj_set_style_border_width(s_img_cover, 2, 0);
+        lv_obj_set_style_border_opa(s_img_cover, LV_OPA_40, 0);
+        lv_obj_set_style_shadow_color(s_img_cover, theme::colors().cyan, 0);
+        lv_obj_set_style_shadow_width(s_img_cover, 8, 0);
+        lv_obj_set_style_shadow_opa(s_img_cover, LV_OPA_20, 0);
+    } else {
+        lv_obj_set_style_border_width(s_img_cover, 0, 0);
+        lv_obj_set_style_border_opa(s_img_cover, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_shadow_width(s_img_cover, 0, 0);
+        lv_obj_set_style_shadow_opa(s_img_cover, LV_OPA_TRANSP, 0);
+    }
+}
+
+static void configure_stage_cover(lv_align_t align, lv_coord_t x, lv_coord_t y, uint16_t zoom,
+                                  bool shadow, bool show_text)
+{
+    if (s_stage_layer == nullptr || s_stage_cover == nullptr || s_stage_shadow == nullptr) {
+        return;
+    }
+
+    lv_obj_clear_flag(s_stage_layer, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_align(s_stage_cover, align, x, y);
+    lv_img_set_zoom(s_stage_cover, zoom);
+    lv_obj_move_foreground(s_stage_cover);
+
+    if (shadow) {
+        lv_obj_clear_flag(s_stage_shadow, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_size(s_stage_shadow, 300, 300);
+        lv_obj_align_to(s_stage_shadow, s_stage_cover, LV_ALIGN_CENTER, 12, 14);
+        lv_obj_set_style_bg_opa(s_stage_shadow,
+                                s_view_mode == ViewMode::CoverVu ? LV_OPA_80 : LV_OPA_60,
+                                0);
+        lv_obj_set_style_shadow_width(s_stage_shadow,
+                                      s_view_mode == ViewMode::CoverVu ? 40 : 26,
+                                      0);
+        lv_obj_set_style_shadow_opa(s_stage_shadow,
+                                    s_view_mode == ViewMode::CoverVu ? LV_OPA_COVER : LV_OPA_80,
+                                    0);
+        lv_obj_move_background(s_stage_shadow);
+        lv_obj_move_foreground(s_stage_cover);
+    } else {
+        lv_obj_add_flag(s_stage_shadow, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (s_stage_title != nullptr && s_stage_artist != nullptr) {
+        if (show_text) {
+            lv_obj_clear_flag(s_stage_title, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(s_stage_artist, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_stage_title, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(s_stage_artist, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
+static void hide_stage_layer(void)
+{
+    if (s_stage_layer != nullptr) {
+        lv_obj_add_flag(s_stage_layer, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void update_vu_overlay(void)
+{
+    if (s_vu_layer == nullptr ||
+        (s_view_mode != ViewMode::CoverVu && s_view_mode != ViewMode::SideVu)) {
+        return;
+    }
+
+    s_vu_phase += 5;
+    const bool side_mode = s_view_mode == ViewMode::SideVu;
+    const lv_coord_t screen_h = lv_disp_get_ver_res(nullptr);
+    const lv_coord_t base_y = side_mode ? 220 : screen_h - 18;
+    const lv_coord_t max_h = side_mode ? 152 : 104;
+    const lv_coord_t start_x = side_mode ? 292 : 12;
+    const lv_coord_t step = side_mode ? 8 : 21;
+    const lv_coord_t bar_w = side_mode ? 5 : 14;
+
+    for (int i = 0; i < kVuBarCount; ++i) {
+        if (s_vu_bars[i] == nullptr) continue;
+
+        uint8_t wave = static_cast<uint8_t>((s_vu_phase + i * 23 + ((i % 4) * s_vu_phase / 3)) % 110);
+        lv_coord_t h = 16 + (wave % max_h);
+        lv_obj_set_width(s_vu_bars[i], bar_w);
+        lv_obj_set_height(s_vu_bars[i], h);
+        lv_obj_set_x(s_vu_bars[i], start_x + (i * step));
+        lv_obj_set_y(s_vu_bars[i], base_y - h);
+        lv_obj_set_style_bg_color(s_vu_bars[i],
+                                  (i % 5 == 0) ? theme::colors().purple : theme::colors().cyan,
+                                  0);
+    }
 }
 
 static void update_fullscreen_layout(void)
 {
     if (s_img_cover == nullptr) return;
 
-    if (s_fullscreen) {
+    const bool fullscreen = s_view_mode != ViewMode::Normal;
+
+    if (fullscreen) {
         // Hide UI elements
         if (s_header != nullptr) lv_obj_add_flag(s_header, LV_OBJ_FLAG_HIDDEN);
         if (s_info_panel != nullptr) lv_obj_add_flag(s_info_panel, LV_OBJ_FLAG_HIDDEN);
+        if (s_decor_layer != nullptr) lv_obj_add_flag(s_decor_layer, LV_OBJ_FLAG_HIDDEN);
 
-        // Adjust cover art to fullscreen mode (300x300, zoom 256, centered)
-        lv_obj_align(s_img_cover, LV_ALIGN_CENTER, 0, 0);
-        lv_img_set_zoom(s_img_cover, 256);
-        
-        // Remove frame ticks in fullscreen for total clean screen
-        // (Just reposition or keep style simple)
+        lv_obj_add_flag(s_img_cover, LV_OBJ_FLAG_HIDDEN);
+        set_cover_chrome(false);
+
+        if (s_vu_layer != nullptr) {
+            if (s_view_mode == ViewMode::CoverVu || s_view_mode == ViewMode::SideVu) {
+                lv_obj_clear_flag(s_vu_layer, LV_OBJ_FLAG_HIDDEN);
+                if (s_view_mode == ViewMode::CoverVu) {
+                    lv_obj_move_foreground(s_vu_layer);
+                }
+            } else {
+                lv_obj_add_flag(s_vu_layer, LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+
+        if (s_view_mode == ViewMode::CoverOnly) {
+            configure_stage_cover(LV_ALIGN_CENTER, 0, 0, 410, false, false);
+        } else if (s_view_mode == ViewMode::CoverVu) {
+            configure_stage_cover(LV_ALIGN_CENTER, 0, -18, 245, true, false);
+        } else {
+            configure_stage_cover(LV_ALIGN_LEFT_MID, 18, -8, 128, true, true);
+            if (s_vu_layer != nullptr) {
+                lv_obj_move_background(s_vu_layer);
+                if (s_stage_layer != nullptr) lv_obj_move_foreground(s_stage_layer);
+            }
+        }
+        update_vu_overlay();
     } else {
         // Show UI elements
         if (s_header != nullptr) lv_obj_clear_flag(s_header, LV_OBJ_FLAG_HIDDEN);
         if (s_info_panel != nullptr) lv_obj_clear_flag(s_info_panel, LV_OBJ_FLAG_HIDDEN);
+        if (s_decor_layer != nullptr) lv_obj_clear_flag(s_decor_layer, LV_OBJ_FLAG_HIDDEN);
+        if (s_vu_layer != nullptr) lv_obj_add_flag(s_vu_layer, LV_OBJ_FLAG_HIDDEN);
+        hide_stage_layer();
 
         // Adjust cover art to standard mode (240x240, zoom 205, left aligned)
+        lv_obj_clear_flag(s_img_cover, LV_OBJ_FLAG_HIDDEN);
         lv_obj_align(s_img_cover, LV_ALIGN_LEFT_MID, 16, 20);
         lv_img_set_zoom(s_img_cover, 205);
+        set_cover_chrome(true);
     }
 }
 
 static void cover_click_cb(lv_event_t *event)
 {
     if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-        s_fullscreen = !s_fullscreen;
+        if (s_view_mode == ViewMode::Normal) {
+            s_view_mode = ViewMode::CoverOnly;
+        } else if (s_view_mode == ViewMode::CoverOnly) {
+            s_view_mode = ViewMode::CoverVu;
+        } else if (s_view_mode == ViewMode::CoverVu) {
+            s_view_mode = ViewMode::SideVu;
+        } else {
+            s_view_mode = ViewMode::Normal;
+        }
         update_fullscreen_layout();
     }
+}
+
+static void create_vu_overlay(lv_obj_t *parent)
+{
+    s_vu_layer = lv_obj_create(parent);
+    lv_obj_remove_style_all(s_vu_layer);
+    lv_obj_set_size(s_vu_layer, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(s_vu_layer, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_clear_flag(s_vu_layer, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(s_vu_layer, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(s_vu_layer, LV_OBJ_FLAG_HIDDEN);
+
+    for (int i = 0; i < kVuBarCount; ++i) {
+        lv_obj_t *bar = lv_obj_create(s_vu_layer);
+        lv_obj_remove_style_all(bar);
+        lv_obj_set_size(bar, 8, 18);
+        lv_obj_set_pos(bar, 58 + (i * 16), lv_disp_get_ver_res(nullptr) - 36);
+        lv_obj_set_style_bg_color(bar, theme::colors().cyan, 0);
+        lv_obj_set_style_bg_opa(bar, LV_OPA_80, 0);
+        lv_obj_set_style_shadow_color(bar, theme::colors().cyan, 0);
+        lv_obj_set_style_shadow_width(bar, 8, 0);
+        lv_obj_set_style_shadow_opa(bar, LV_OPA_60, 0);
+        s_vu_bars[i] = bar;
+    }
+}
+
+static void create_stage_layer(lv_obj_t *parent)
+{
+    s_stage_layer = lv_obj_create(parent);
+    lv_obj_remove_style_all(s_stage_layer);
+    lv_obj_set_size(s_stage_layer, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(s_stage_layer, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_clear_flag(s_stage_layer, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(s_stage_layer, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(s_stage_layer, LV_OBJ_FLAG_HIDDEN);
+
+    s_stage_shadow = lv_obj_create(s_stage_layer);
+    lv_obj_remove_style_all(s_stage_shadow);
+    lv_obj_set_size(s_stage_shadow, 300, 300);
+    lv_obj_set_style_bg_color(s_stage_shadow, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(s_stage_shadow, LV_OPA_80, 0);
+    lv_obj_set_style_shadow_color(s_stage_shadow, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_shadow_width(s_stage_shadow, 40, 0);
+    lv_obj_set_style_shadow_opa(s_stage_shadow, LV_OPA_COVER, 0);
+
+    s_stage_cover = lv_img_create(s_stage_layer);
+    lv_img_set_src(s_stage_cover, &s_cover_dsc);
+    lv_obj_add_flag(s_stage_cover, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_stage_cover, cover_click_cb, LV_EVENT_CLICKED, nullptr);
+
+    s_stage_title = lv_label_create(s_stage_layer);
+    lv_label_set_text(s_stage_title, "Sem Musica");
+    lv_label_set_long_mode(s_stage_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_width(s_stage_title, 238);
+    lv_obj_set_style_text_font(s_stage_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(s_stage_title, theme::colors().text, 0);
+    lv_obj_align(s_stage_title, LV_ALIGN_BOTTOM_LEFT, 18, -58);
+
+    s_stage_artist = lv_label_create(s_stage_layer);
+    lv_label_set_text(s_stage_artist, "Desconectado");
+    lv_label_set_long_mode(s_stage_artist, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(s_stage_artist, 238);
+    lv_obj_set_style_text_font(s_stage_artist, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(s_stage_artist, theme::colors().muted, 0);
+    lv_obj_align(s_stage_artist, LV_ALIGN_BOTTOM_LEFT, 18, -32);
 }
 
 static void control_click_cb(lv_event_t *event)
@@ -138,11 +366,13 @@ static void update_timer_cb(lv_timer_t *timer)
     if (strcmp(title, s_last_title) != 0) {
         strcpy(s_last_title, title);
         lv_label_set_text(s_title_lbl, title);
+        if (s_stage_title != nullptr) lv_label_set_text(s_stage_title, title);
     }
 
     if (strcmp(artist, s_last_artist) != 0) {
         strcpy(s_last_artist, artist);
         lv_label_set_text(s_artist_lbl, artist);
+        if (s_stage_artist != nullptr) lv_label_set_text(s_stage_artist, artist);
     }
 
     // Cover image update
@@ -151,7 +381,12 @@ static void update_timer_cb(lv_timer_t *timer)
         // Invalidate image cache and redraw
         lv_img_cache_invalidate_src(&s_cover_dsc);
         lv_obj_invalidate(s_img_cover);
+        if (s_stage_cover != nullptr) {
+            lv_obj_invalidate(s_stage_cover);
+        }
     }
+
+    update_vu_overlay();
 }
 
 void show(void)
@@ -161,8 +396,14 @@ void show(void)
     s_screen = lv_obj_create(nullptr);
     theme::apply_screen(s_screen);
     lv_obj_add_event_cb(s_screen, cleanup_cb, LV_EVENT_DELETE, nullptr);
-    theme::add_frame_ticks(s_screen);
-    theme::add_scanlines(s_screen, LV_OPA_10);
+
+    s_decor_layer = lv_obj_create(s_screen);
+    lv_obj_remove_style_all(s_decor_layer);
+    lv_obj_set_size(s_decor_layer, LV_PCT(100), LV_PCT(100));
+    lv_obj_clear_flag(s_decor_layer, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_clear_flag(s_decor_layer, LV_OBJ_FLAG_SCROLLABLE);
+    theme::add_frame_ticks(s_decor_layer);
+    theme::add_scanlines(s_decor_layer, LV_OPA_10);
 
     // --- Header ---
     s_header = theme::create_panel(s_screen);
@@ -181,6 +422,7 @@ void show(void)
 
     // Set cover raw data pointer
     s_cover_dsc.data = spotify_ble_get_cover_data();
+    create_stage_layer(s_screen);
 
     // --- Left-side Cover Art ---
     s_img_cover = lv_img_create(s_screen);
@@ -192,12 +434,8 @@ void show(void)
     lv_obj_add_event_cb(s_img_cover, cover_click_cb, LV_EVENT_CLICKED, nullptr);
 
     // Styled border around cover art
-    lv_obj_set_style_border_color(s_img_cover, theme::colors().cyan, 0);
-    lv_obj_set_style_border_width(s_img_cover, 2, 0);
-    lv_obj_set_style_border_opa(s_img_cover, LV_OPA_40, 0);
-    lv_obj_set_style_shadow_color(s_img_cover, theme::colors().cyan, 0);
-    lv_obj_set_style_shadow_width(s_img_cover, 8, 0);
-    lv_obj_set_style_shadow_opa(s_img_cover, LV_OPA_20, 0);
+    set_cover_chrome(true);
+    create_vu_overlay(s_screen);
 
     // --- Right-side Controls Panel ---
     s_info_panel = theme::create_panel(s_screen);

@@ -6,6 +6,7 @@ namespace ui {
 namespace theme {
 
 static bool s_ready = false;
+static PaletteId s_palette_id = PaletteId::Cyber;
 
 static Palette s_palette = {
     lv_color_hex(0x050505),
@@ -27,9 +28,129 @@ static lv_style_t s_title;
 static lv_style_t s_text;
 static lv_style_t s_muted;
 
+static Palette make_palette(PaletteId id)
+{
+    switch(id) {
+        case PaletteId::Orange:
+            return {
+                lv_color_hex(0x060402),
+                lv_color_hex(0x16100A),
+                lv_color_hex(0x21150B),
+                lv_color_hex(0xFF9F1C),
+                lv_color_hex(0xFF5A1F),
+                lv_color_hex(0xFFD166),
+                lv_color_hex(0xFFF8EF),
+                lv_color_hex(0xB89A78),
+            };
+        case PaletteId::Red:
+            return {
+                lv_color_hex(0x070203),
+                lv_color_hex(0x17090B),
+                lv_color_hex(0x220D10),
+                lv_color_hex(0xFF3B30),
+                lv_color_hex(0xB80F1D),
+                lv_color_hex(0xFF8A80),
+                lv_color_hex(0xFFF3F2),
+                lv_color_hex(0xB78282),
+            };
+        case PaletteId::Green:
+            return {
+                lv_color_hex(0x020704),
+                lv_color_hex(0x07160D),
+                lv_color_hex(0x0C2114),
+                lv_color_hex(0x32D74B),
+                lv_color_hex(0x0A7F3F),
+                lv_color_hex(0xB7F25C),
+                lv_color_hex(0xF2FFF5),
+                lv_color_hex(0x7BA887),
+            };
+        case PaletteId::Cyber:
+        default:
+            return {
+                lv_color_hex(0x050505),
+                lv_color_hex(0x111111),
+                lv_color_hex(0x17171C),
+                lv_color_hex(0x00E5FF),
+                lv_color_hex(0x006CFF),
+                lv_color_hex(0x9B31FF),
+                lv_color_hex(0xFFFFFF),
+                lv_color_hex(0x7A8A90),
+            };
+    }
+}
+
+static void reset_styles()
+{
+    if(!s_ready) {
+        return;
+    }
+    lv_style_reset(&s_panel);
+    lv_style_reset(&s_button);
+    lv_style_reset(&s_button_pressed);
+    lv_style_reset(&s_button_disabled);
+    lv_style_reset(&s_subtle_button);
+    lv_style_reset(&s_title);
+    lv_style_reset(&s_text);
+    lv_style_reset(&s_muted);
+    s_ready = false;
+}
+
 const Palette &colors()
 {
     return s_palette;
+}
+
+PaletteId palette_id()
+{
+    return s_palette_id;
+}
+
+const char *palette_name()
+{
+    switch(s_palette_id) {
+        case PaletteId::Orange:
+            return "LARANJA";
+        case PaletteId::Red:
+            return "VERMELHO";
+        case PaletteId::Green:
+            return "VERDE";
+        case PaletteId::Cyber:
+        default:
+            return "CYBER";
+    }
+}
+
+void set_palette(PaletteId id)
+{
+    if(s_palette_id == id && s_ready) {
+        return;
+    }
+    s_palette_id = id;
+    s_palette = make_palette(id);
+    reset_styles();
+    init();
+}
+
+PaletteId cycle_palette()
+{
+    PaletteId next = PaletteId::Cyber;
+    switch(s_palette_id) {
+        case PaletteId::Cyber:
+            next = PaletteId::Orange;
+            break;
+        case PaletteId::Orange:
+            next = PaletteId::Red;
+            break;
+        case PaletteId::Red:
+            next = PaletteId::Green;
+            break;
+        case PaletteId::Green:
+        default:
+            next = PaletteId::Cyber;
+            break;
+    }
+    set_palette(next);
+    return next;
 }
 
 void init()

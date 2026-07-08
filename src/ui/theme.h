@@ -16,8 +16,19 @@ struct Palette {
     lv_color_t muted;
 };
 
+enum class PaletteId {
+    Cyber = 0,
+    Orange,
+    Red,
+    Green,
+};
+
 void init();
 const Palette &colors();
+PaletteId palette_id();
+const char *palette_name();
+void set_palette(PaletteId id);
+PaletteId cycle_palette();
 
 void apply_screen(lv_obj_t *obj);
 void apply_panel(lv_obj_t *obj);
