@@ -5,3 +5,9 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 /example/.pio
+
+/android-spotify-bridge/.gradle/
+/android-spotify-bridge/.idea/
+/android-spotify-bridge/build/
+/android-spotify-bridge/app/build/
+/android-spotify-bridge/local.properties

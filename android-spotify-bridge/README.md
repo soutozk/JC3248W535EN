@@ -1,21 +1,24 @@
 # CyberDeck Spotify Bridge
 
-App Android simples para testar a ponte BLE com a ESP32.
+App Android para enviar a musica atual do Spotify para a ESP32 via BLE.
 
-## Primeiro teste
+## Como testar
 
 1. Grave o firmware atualizado na ESP32.
 2. Abra esta pasta (`android-spotify-bridge`) no Android Studio.
 3. Compile e instale no celular.
-4. Ative Bluetooth e permissões do app.
+4. Abra o app e permita Bluetooth.
 5. Toque em `SCAN / CONECTAR`.
-6. Depois de conectado, preencha titulo e artista.
-7. Toque em `ENVIAR PARA ESP32`.
+6. Toque em `ATIVAR ACESSO AO SPOTIFY` e habilite `CyberDeck Spotify Bridge`.
+7. Volte para o app.
+8. Abra o Spotify e toque uma musica.
 
-O app procura o dispositivo BLE `CyberDeck_Spotify` e escreve `Titulo;Artista` na característica:
+O app le a notificacao do Spotify e envia automaticamente:
 
-`F38A0002-82EB-4A73-A38C-CE98C9438012`
+- Titulo/artista em `F38A0002-82EB-4A73-A38C-CE98C9438012`.
+- Tamanho da capa em `F38A0004-82EB-4A73-A38C-CE98C9438012`.
+- JPEG da capa em blocos em `F38A0005-82EB-4A73-A38C-CE98C9438012`.
 
-## Observação
+## Teste manual
 
-Esta versão ainda não lê automaticamente o Spotify. Ela serve para confirmar que um app Android próprio consegue enviar dados para a tela.
+O botao `ENVIAR MANUAL` continua disponivel para diagnostico. Ele envia apenas `Titulo;Artista` para confirmar que a conexao BLE esta viva.

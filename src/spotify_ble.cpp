@@ -53,39 +53,71 @@ static int spotify_gatt_cb(uint16_t conn_handle, uint16_t attr_handle, struct bl
 static int gap_event_cb(struct ble_gap_event *event, void *arg);
 
 // GATT Service definition
+static const struct ble_gatt_chr_def gatt_chrs[] = {
+    {
+        .uuid = &track_chr_uuid.u,
+        .access_cb = spotify_gatt_cb,
+        .arg = NULL,
+        .descriptors = NULL,
+        .flags = BLE_GATT_CHR_F_WRITE,
+        .min_key_size = 0,
+        .val_handle = NULL,
+        .cpfd = NULL,
+    },
+    {
+        .uuid = &control_chr_uuid.u,
+        .access_cb = spotify_gatt_cb,
+        .arg = NULL,
+        .descriptors = NULL,
+        .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+        .min_key_size = 0,
+        .val_handle = &control_val_handle,
+        .cpfd = NULL,
+    },
+    {
+        .uuid = &cover_size_chr_uuid.u,
+        .access_cb = spotify_gatt_cb,
+        .arg = NULL,
+        .descriptors = NULL,
+        .flags = BLE_GATT_CHR_F_WRITE,
+        .min_key_size = 0,
+        .val_handle = NULL,
+        .cpfd = NULL,
+    },
+    {
+        .uuid = &cover_data_chr_uuid.u,
+        .access_cb = spotify_gatt_cb,
+        .arg = NULL,
+        .descriptors = NULL,
+        .flags = BLE_GATT_CHR_F_WRITE_NO_RSP,
+        .min_key_size = 0,
+        .val_handle = NULL,
+        .cpfd = NULL,
+    },
+    {
+        .uuid = NULL,
+        .access_cb = NULL,
+        .arg = NULL,
+        .descriptors = NULL,
+        .flags = 0,
+        .min_key_size = 0,
+        .val_handle = NULL,
+        .cpfd = NULL,
+    },
+};
+
 static const struct ble_gatt_svc_def gatt_svcs[] = {
     {
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
         .uuid = &spotify_svc_uuid.u,
-        .characteristics = (struct ble_gatt_chr_def[]) {
-            {
-                .uuid = &track_chr_uuid.u,
-                .access_cb = spotify_gatt_cb,
-                .flags = BLE_GATT_CHR_F_WRITE,
-            },
-            {
-                .uuid = &control_chr_uuid.u,
-                .access_cb = spotify_gatt_cb,
-                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-                .val_handle = &control_val_handle,
-            },
-            {
-                .uuid = &cover_size_chr_uuid.u,
-                .access_cb = spotify_gatt_cb,
-                .flags = BLE_GATT_CHR_F_WRITE,
-            },
-            {
-                .uuid = &cover_data_chr_uuid.u,
-                .access_cb = spotify_gatt_cb,
-                .flags = BLE_GATT_CHR_F_WRITE_NO_RSP,
-            },
-            {
-                0, /* No more characteristics in this service */
-            }
-        },
+        .includes = NULL,
+        .characteristics = gatt_chrs,
     },
     {
-        0, /* No more services */
+        .type = 0,
+        .uuid = NULL,
+        .includes = NULL,
+        .characteristics = NULL,
     },
 };
 
