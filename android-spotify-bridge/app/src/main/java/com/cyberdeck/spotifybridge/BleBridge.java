@@ -40,7 +40,7 @@ public class BleBridge {
 
     private static final String DEVICE_NAME = "CyberDeck_Spotify";
     private static final int COVER_SIZE = 300;
-    private static final int COVER_CHUNK_SIZE = 180;
+    private static final int COVER_CHUNK_SIZE = 120;
 
     private static final UUID SERVICE_UUID =
             UUID.fromString("f38a0001-82eb-4a73-a38c-ce98c9438012");
@@ -73,6 +73,10 @@ public class BleBridge {
     private boolean writeInProgress;
     private String lastAutoPayload = "";
     private int lastAutoCoverHash = 0;
+    private int currentCoverBytesTotal = 0;
+    private int currentCoverBytesSent = 0;
+    private WriteOp currentWriteOp;
+    private int activeTransferId = 0;
 
     public static synchronized BleBridge get(Context context) {
         if (instance == null) {
@@ -172,6 +176,12 @@ public class BleBridge {
         if (!force && payload.equals(lastAutoPayload) && coverHash == lastAutoCoverHash) {
             return;
         }
+
+        if (!force) {
+            writeQueue.clear();
+        }
+
+        activeTransferId++;
         lastAutoPayload = payload;
         lastAutoCoverHash = coverHash;
 
@@ -179,6 +189,9 @@ public class BleBridge {
         enqueueWrite(trackCharacteristic, metadata, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT, true);
 
         if (jpeg != null && coverSizeCharacteristic != null && coverDataCharacteristic != null) {
+            currentCoverBytesTotal = jpeg.length;
+            currentCoverBytesSent = 0;
+
             byte[] size = ByteBuffer.allocate(4)
                     .order(ByteOrder.LITTLE_ENDIAN)
                     .putInt(jpeg.length)
@@ -189,10 +202,12 @@ public class BleBridge {
                 byte[] chunk = new byte[len];
                 System.arraycopy(jpeg, offset, chunk, 0, len);
                 enqueueWrite(coverDataCharacteristic, chunk,
-                        BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE, false);
+                        BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT, true);
             }
-            setStatus("Enviando Spotify + capa (" + jpeg.length + " bytes)");
+            setStatus("Enviando Spotify + capa (0/" + (jpeg.length / 1024) + " KB)");
         } else {
+            currentCoverBytesTotal = 0;
+            currentCoverBytesSent = 0;
             setStatus("Enviando Spotify: " + payload);
         }
 
@@ -207,7 +222,7 @@ public class BleBridge {
         }
         byte[] copy = new byte[data.length];
         System.arraycopy(data, 0, copy, 0, data.length);
-        writeQueue.add(new WriteOp(characteristic, copy, writeType, waitForCallback));
+        writeQueue.add(new WriteOp(characteristic, copy, writeType, waitForCallback, activeTransferId));
     }
 
     private void processNextWrite() {
@@ -217,9 +232,11 @@ public class BleBridge {
             }
 
             WriteOp op = writeQueue.poll();
+            currentWriteOp = op;
             writeInProgress = true;
             boolean started = writeCharacteristic(op);
             if (!started) {
+                currentWriteOp = null;
                 writeInProgress = false;
                 setStatus("Falha ao iniciar escrita BLE");
                 processNextWrite();
@@ -228,6 +245,7 @@ public class BleBridge {
 
             if (!op.waitForCallback) {
                 mainHandler.postDelayed(() -> {
+                    currentWriteOp = null;
                     writeInProgress = false;
                     processNextWrite();
                 }, 18);
@@ -264,7 +282,7 @@ public class BleBridge {
                 new android.graphics.RectF(left, top, left + width, top + height), paint);
 
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        out.compress(Bitmap.CompressFormat.JPEG, 82, stream);
+        out.compress(Bitmap.CompressFormat.JPEG, 68, stream);
         return stream.toByteArray();
     }
 
@@ -384,6 +402,8 @@ public class BleBridge {
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 setStatus("Falha ao enviar BLE: " + status);
             }
+            updateCoverProgress(currentWriteOp);
+            currentWriteOp = null;
             writeInProgress = false;
             processNextWrite();
             if (writeQueue.isEmpty() && status == BluetoothGatt.GATT_SUCCESS) {
@@ -423,6 +443,23 @@ public class BleBridge {
         }
 
         SpotifyNotificationListener.handleMediaCommand(context, command);
+    }
+
+    private void updateCoverProgress(WriteOp op) {
+        if (op == null || currentCoverBytesTotal <= 0) {
+            return;
+        }
+        if (op.transferId != activeTransferId) {
+            return;
+        }
+        if (!COVER_DATA_UUID.equals(op.characteristic.getUuid())) {
+            return;
+        }
+
+        currentCoverBytesSent += op.data.length;
+        int sentKb = currentCoverBytesSent / 1024;
+        int totalKb = Math.max(1, currentCoverBytesTotal / 1024);
+        setStatus("Enviando capa: " + sentKb + "/" + totalKb + " KB");
     }
 
     private boolean hasScanPermission() {
@@ -472,13 +509,15 @@ public class BleBridge {
         final byte[] data;
         final int writeType;
         final boolean waitForCallback;
+        final int transferId;
 
         WriteOp(BluetoothGattCharacteristic characteristic, byte[] data,
-                int writeType, boolean waitForCallback) {
+                int writeType, boolean waitForCallback, int transferId) {
             this.characteristic = characteristic;
             this.data = data;
             this.writeType = writeType;
             this.waitForCallback = waitForCallback;
+            this.transferId = transferId;
         }
     }
 }

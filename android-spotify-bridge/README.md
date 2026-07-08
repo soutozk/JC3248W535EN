@@ -20,6 +20,8 @@ O app le a notificacao do Spotify e envia automaticamente:
 - JPEG da capa em blocos em `F38A0005-82EB-4A73-A38C-CE98C9438012`.
 - Comandos dos botoes da placa por notificacao em `F38A0003-82EB-4A73-A38C-CE98C9438012`.
 
+A capa e enviada em blocos pequenos com confirmacao BLE. Isso e mais lento, mas evita JPEG incompleto na ESP32.
+
 Os botoes usam a MediaSession do Spotify:
 
 - `1`: proxima musica.
