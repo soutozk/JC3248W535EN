@@ -18,6 +18,15 @@ O app le a notificacao do Spotify e envia automaticamente:
 - Titulo/artista em `F38A0002-82EB-4A73-A38C-CE98C9438012`.
 - Tamanho da capa em `F38A0004-82EB-4A73-A38C-CE98C9438012`.
 - JPEG da capa em blocos em `F38A0005-82EB-4A73-A38C-CE98C9438012`.
+- Comandos dos botoes da placa por notificacao em `F38A0003-82EB-4A73-A38C-CE98C9438012`.
+
+Os botoes usam a MediaSession do Spotify:
+
+- `1`: proxima musica.
+- `2`: musica anterior.
+- `3`: play/pause.
+
+Para a capa, o app tenta primeiro a notificacao e depois a MediaSession (`ALBUM_ART` / `ART`).
 
 ## Teste manual
 

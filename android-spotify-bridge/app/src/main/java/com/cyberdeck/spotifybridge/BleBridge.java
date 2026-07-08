@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.UUID;
 
 public class BleBridge {
@@ -71,6 +72,7 @@ public class BleBridge {
     private boolean scanning;
     private boolean writeInProgress;
     private String lastAutoPayload = "";
+    private int lastAutoCoverHash = 0;
 
     public static synchronized BleBridge get(Context context) {
         if (instance == null) {
@@ -163,16 +165,19 @@ public class BleBridge {
             return;
         }
 
+        byte[] jpeg = cover != null ? bitmapToJpeg300(cover) : null;
+        int coverHash = jpeg != null ? Arrays.hashCode(jpeg) : 0;
+
         String payload = cleanTitle + ";" + cleanArtist;
-        if (!force && payload.equals(lastAutoPayload)) {
+        if (!force && payload.equals(lastAutoPayload) && coverHash == lastAutoCoverHash) {
             return;
         }
         lastAutoPayload = payload;
+        lastAutoCoverHash = coverHash;
 
         byte[] metadata = payload.getBytes(StandardCharsets.UTF_8);
         enqueueWrite(trackCharacteristic, metadata, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT, true);
 
-        byte[] jpeg = cover != null ? bitmapToJpeg300(cover) : null;
         if (jpeg != null && coverSizeCharacteristic != null && coverDataCharacteristic != null) {
             byte[] size = ByteBuffer.allocate(4)
                     .order(ByteOrder.LITTLE_ENDIAN)
@@ -369,7 +374,7 @@ public class BleBridge {
             enableControlNotifications();
             setStatus("Pronto. Abra o Spotify e toque uma musica.");
             notifyConnection(true);
-            SpotifyNotificationListener.pushActiveSpotify(context);
+            mainHandler.postDelayed(() -> SpotifyNotificationListener.pushActiveSpotify(context), 500);
         }
 
         @Override
@@ -385,7 +390,40 @@ public class BleBridge {
                 setStatus("Envio concluido");
             }
         }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt,
+                                            BluetoothGattCharacteristic characteristic) {
+            handleControlNotification(characteristic.getValue());
+        }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt,
+                                            BluetoothGattCharacteristic characteristic,
+                                            byte[] value) {
+            handleControlNotification(value);
+        }
     };
+
+    private void handleControlNotification(byte[] value) {
+        if (value == null || value.length == 0) {
+            return;
+        }
+
+        int command = value[0] & 0xff;
+        if (command == 1) {
+            setStatus("Comando da placa: proxima");
+        } else if (command == 2) {
+            setStatus("Comando da placa: anterior");
+        } else if (command == 3) {
+            setStatus("Comando da placa: play/pause");
+        } else {
+            setStatus("Comando desconhecido da placa: " + command);
+            return;
+        }
+
+        SpotifyNotificationListener.handleMediaCommand(context, command);
+    }
 
     private boolean hasScanPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
