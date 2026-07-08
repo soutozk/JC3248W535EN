@@ -15,6 +15,9 @@
 #include "rom/tjpgd.h"
 
 #include <string.h>
+#include "nvs_flash.h"
+
+extern "C" void ble_store_config_init(void);
 
 static const char *TAG = "SPOTIFY_BLE";
 
@@ -41,9 +44,13 @@ static const ble_uuid128_t cover_data_chr_uuid =
 
 static uint16_t control_val_handle;
 static bool s_ble_connected = false;
+static uint16_t s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
+
+static const uint32_t MAX_COVER_JPEG_SIZE = 512 * 1024;
 
 // Forward declaration of GATT access callback
 static int spotify_gatt_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg);
+static int gap_event_cb(struct ble_gap_event *event, void *arg);
 
 // GATT Service definition
 static const struct ble_gatt_svc_def gatt_svcs[] = {
@@ -101,11 +108,17 @@ struct JpegInputSource {
     uint32_t offset;
 };
 
+struct JpegDecodeContext {
+    JpegInputSource input;
+    uint8_t *output_rgb565;
+};
+
 // --- TJpgDec Callback Functions ---
 
 static UINT tjpgd_input_cb(JDEC *decoder, BYTE *buf, UINT len)
 {
-    JpegInputSource *source = (JpegInputSource *)decoder->device;
+    JpegDecodeContext *ctx = (JpegDecodeContext *)decoder->device;
+    JpegInputSource *source = &ctx->input;
     if (source->offset >= source->len) {
         return 0;
     }
@@ -122,7 +135,8 @@ static UINT tjpgd_input_cb(JDEC *decoder, BYTE *buf, UINT len)
 
 static UINT tjpgd_output_cb(JDEC *decoder, void *bitmap, JRECT *rect)
 {
-    uint16_t *dst = (uint16_t *)decoder->device; // We pass s_cover_rgb565_buf as udev
+    JpegDecodeContext *ctx = (JpegDecodeContext *)decoder->device;
+    uint16_t *dst = (uint16_t *)ctx->output_rgb565;
     uint16_t *src = (uint16_t *)bitmap;
     int dst_w = SPOTIFY_COVER_SIZE; // 300
     
@@ -161,17 +175,16 @@ static void decode_jpeg(const uint8_t *jpeg_data, uint32_t jpeg_len)
         return;
     }
 
-    JpegInputSource source;
-    source.data = jpeg_data;
-    source.len = jpeg_len;
-    source.offset = 0;
+    JpegDecodeContext decode_ctx;
+    decode_ctx.input.data = jpeg_data;
+    decode_ctx.input.len = jpeg_len;
+    decode_ctx.input.offset = 0;
+    decode_ctx.output_rgb565 = s_cover_rgb565_buf;
 
     JDEC decoder;
-    // Prepare TJpgDec decompressor, pass source in device field (last param)
-    JRESULT res = jd_prepare(&decoder, tjpgd_input_cb, work_buf, work_buf_size, &source);
+    JRESULT res = jd_prepare(&decoder, tjpgd_input_cb, work_buf, work_buf_size, &decode_ctx);
     if (res == JDR_OK) {
-        // Run decompressor, scale factor 0 (raw size), pass RGB565 output buffer in JDEC's device field
-        decoder.device = s_cover_rgb565_buf;
+        // Run decompressor, scale factor 0 (raw size).
         res = jd_decomp(&decoder, tjpgd_output_cb, 0);
         if (res == JDR_OK) {
             ESP_LOGI(TAG, "JPEG decoded successfully to 300x300 RGB565");
@@ -194,6 +207,16 @@ static void decode_jpeg(const uint8_t *jpeg_data, uint32_t jpeg_len)
 static int spotify_gatt_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
     const ble_uuid_t *uuid = ctxt->chr->uuid;
+
+    if (ble_uuid_cmp(uuid, &control_chr_uuid.u) == 0) {
+        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+            uint8_t idle_cmd = 0;
+            return os_mbuf_append(ctxt->om, &idle_cmd, sizeof(idle_cmd)) == 0
+                ? 0
+                : BLE_ATT_ERR_INSUFFICIENT_RES;
+        }
+        return 0;
+    }
 
     if (ble_uuid_cmp(uuid, &track_chr_uuid.u) == 0) {
         if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
@@ -229,11 +252,28 @@ static int spotify_gatt_cb(uint16_t conn_handle, uint16_t attr_handle, struct bl
 
     if (ble_uuid_cmp(uuid, &cover_size_chr_uuid.u) == 0) {
         if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
-            uint32_t size = 0;
-            int rc = ble_hs_mbuf_to_flat(ctxt->om, &size, 4, NULL);
+            uint8_t raw_size[4] = {0};
+            int rc = ble_hs_mbuf_to_flat(ctxt->om, raw_size, sizeof(raw_size), NULL);
             if (rc == 0) {
-                // Size is sent in big-endian or native format, let's process it
-                // We'll enforce native format from python client for simplicity
+                uint32_t size_le = ((uint32_t)raw_size[0]) |
+                                   ((uint32_t)raw_size[1] << 8) |
+                                   ((uint32_t)raw_size[2] << 16) |
+                                   ((uint32_t)raw_size[3] << 24);
+                uint32_t size_be = ((uint32_t)raw_size[0] << 24) |
+                                   ((uint32_t)raw_size[1] << 16) |
+                                   ((uint32_t)raw_size[2] << 8) |
+                                   ((uint32_t)raw_size[3]);
+                uint32_t size = size_le;
+
+                if (size == 0 || size > MAX_COVER_JPEG_SIZE) {
+                    size = size_be;
+                }
+
+                if (size == 0 || size > MAX_COVER_JPEG_SIZE) {
+                    ESP_LOGE(TAG, "Invalid cover image size: le=%ld be=%ld", size_le, size_be);
+                    return BLE_ATT_ERR_UNLIKELY;
+                }
+
                 ESP_LOGI(TAG, "Expecting cover image of size: %ld bytes", size);
                 
                 if (s_jpeg_input_buf != NULL) {
@@ -279,6 +319,53 @@ static int spotify_gatt_cb(uint16_t conn_handle, uint16_t attr_handle, struct bl
 
 // --- GAP & BLE Server Setup ---
 
+static void start_advertising(void)
+{
+    uint8_t own_addr_type;
+    int rc = ble_hs_id_infer_auto(0, &own_addr_type);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Error determining address type: %d", rc);
+        return;
+    }
+
+    struct ble_hs_adv_fields fields;
+    memset(&fields, 0, sizeof(fields));
+    fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
+    fields.uuids128 = &spotify_svc_uuid;
+    fields.num_uuids128 = 1;
+    fields.uuids128_is_complete = 1;
+
+    rc = ble_gap_adv_set_fields(&fields);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Error setting adv fields: %d", rc);
+        return;
+    }
+
+    struct ble_hs_adv_fields rsp_fields;
+    memset(&rsp_fields, 0, sizeof(rsp_fields));
+    rsp_fields.name = (uint8_t *)"CyberDeck_Spotify";
+    rsp_fields.name_len = strlen("CyberDeck_Spotify");
+    rsp_fields.name_is_complete = 1;
+
+    rc = ble_gap_adv_rsp_set_fields(&rsp_fields);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Error setting scan response fields: %d", rc);
+        return;
+    }
+
+    struct ble_gap_adv_params adv_params;
+    memset(&adv_params, 0, sizeof(adv_params));
+    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
+    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+
+    rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, gap_event_cb, NULL);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Error starting advertising: %d", rc);
+    } else {
+        ESP_LOGI(TAG, "BLE advertising started as CyberDeck_Spotify");
+    }
+}
+
 static int gap_event_cb(struct ble_gap_event *event, void *arg)
 {
     switch (event->type) {
@@ -286,15 +373,17 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg)
             ESP_LOGI(TAG, "BLE Client Connected (status=%d)", event->connect.status);
             if (event->connect.status == 0) {
                 s_ble_connected = true;
+                s_conn_handle = event->connect.conn_handle;
             } else {
                 // Resume advertising if connection failed
-                ble_gap_adv_start(BLE_OWN_ADDR_PUBLIC, NULL, BLE_HS_FOREVER, NULL, gap_event_cb, NULL);
+                start_advertising();
             }
             break;
 
         case BLE_GAP_EVENT_DISCONNECT:
             ESP_LOGI(TAG, "BLE Client Disconnected (reason=%d)", event->disconnect.reason);
             s_ble_connected = false;
+            s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
             
             // Clean up JPEG buffers
             if (s_jpeg_input_buf != NULL) {
@@ -312,15 +401,7 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg)
             }
 
             // Restart advertising
-            {
-                uint8_t own_addr_type;
-                ble_hs_id_infer_auto(0, &own_addr_type);
-                struct ble_gap_adv_params adv_params;
-                memset(&adv_params, 0, sizeof(adv_params));
-                adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
-                adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
-                ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, gap_event_cb, NULL);
-            }
+            start_advertising();
             break;
 
         case BLE_GAP_EVENT_ADV_COMPLETE:
@@ -339,41 +420,7 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg)
 
 static void on_sync_cb(void)
 {
-    uint8_t own_addr_type;
-    int rc = ble_hs_id_infer_auto(0, &own_addr_type);
-    if (rc != 0) {
-        ESP_LOGE(TAG, "Error determining address type: %d", rc);
-        return;
-    }
-
-    struct ble_gap_adv_params adv_params;
-    struct ble_hs_adv_fields fields;
-
-    memset(&fields, 0, sizeof(fields));
-    fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
-    fields.name = (uint8_t *)"CyberDeck_Spotify";
-    fields.name_len = strlen("CyberDeck_Spotify");
-    fields.name_is_complete = 1;
-    fields.uuids128 = &spotify_svc_uuid;
-    fields.num_uuids128 = 1;
-    fields.uuids128_is_complete = 1;
-
-    rc = ble_gap_adv_set_fields(&fields);
-    if (rc != 0) {
-        ESP_LOGE(TAG, "Error setting adv fields: %d", rc);
-        return;
-    }
-
-    memset(&adv_params, 0, sizeof(adv_params));
-    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
-    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
-
-    rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, gap_event_cb, NULL);
-    if (rc != 0) {
-        ESP_LOGE(TAG, "Error starting advertising: %d", rc);
-    } else {
-        ESP_LOGI(TAG, "BLE advertising started...");
-    }
+    start_advertising();
 }
 
 static void on_reset_cb(int reason)
@@ -396,6 +443,17 @@ void spotify_ble_init(void)
         return; // Already initialized
     }
 
+    // Initialize NVS flash for BLE bonding/storage
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        ret = nvs_flash_init();
+    }
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init NVS flash: %d", ret);
+        return;
+    }
+
     s_spotify_mutex = xSemaphoreCreateMutex();
     
     // Allocate RGB565 cover art buffer in PSRAM (300 x 300 x 2 bytes = 180KB)
@@ -415,6 +473,17 @@ void spotify_ble_init(void)
 
     ble_hs_cfg.sync_cb = on_sync_cb;
     ble_hs_cfg.reset_cb = on_reset_cb;
+
+    // Enable Security Manager (SM) bonding & secure connections for pairing
+    ble_hs_cfg.sm_io_cap = BLE_HS_IO_NO_INPUT_OUTPUT; // Just Works
+    ble_hs_cfg.sm_bonding = 1;                         // Enable bonding to remember paired phone
+    ble_hs_cfg.sm_mitm = 0;                            // MITM protection not required
+    ble_hs_cfg.sm_sc = 1;                              // Enable LE Secure Connections
+    ble_hs_cfg.sm_our_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+
+    // Initialize NimBLE configuration store for storing bonding keys
+    ble_store_config_init();
 
     // Define services and characteristics
     rc = ble_gatts_count_cfg(gatt_svcs);
@@ -497,7 +566,7 @@ static void send_notification(uint8_t cmd)
     
     struct os_mbuf *om = ble_hs_mbuf_from_flat(&cmd, 1);
     if (om != NULL) {
-        int rc = ble_gatts_notify_custom(0, control_val_handle, om);
+        int rc = ble_gatts_notify_custom(s_conn_handle, control_val_handle, om);
         if (rc != 0) {
             ESP_LOGE(TAG, "Failed to send notification (rc=%d)", rc);
         } else {
