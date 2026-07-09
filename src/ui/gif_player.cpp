@@ -1,6 +1,7 @@
 #include "gif_player.h"
 
 #include "home.h"
+#include "navigation.h"
 #include "sd_browser.h"
 #include "theme.h"
 
@@ -114,6 +115,7 @@ static void show_unsupported_player(const sd_browser::MediaFile *file)
 
     create_overlay_button(screen, back_to_list_cb);
     create_filename_label(screen, file);
+    navigation::attach(screen);
 
     s_placeholder_timer = lv_timer_create(placeholder_timer_cb, 80, nullptr);
     placeholder_timer_cb(s_placeholder_timer);
@@ -132,6 +134,7 @@ static void show_gif_player(const sd_browser::MediaFile *file)
 
     create_overlay_button(screen, back_to_list_cb);
     create_filename_label(screen, file);
+    navigation::attach(screen);
 
     lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_FADE_IN, 180, 0, true);
 }
@@ -248,6 +251,7 @@ void show_list()
         }
     }
 
+    navigation::attach(screen);
     lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 220, 0, true);
 }
 

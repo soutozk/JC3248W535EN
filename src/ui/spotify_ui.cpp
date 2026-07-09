@@ -1,5 +1,6 @@
 #include "spotify_ui.h"
 #include "spotify_ble.h"
+#include "navigation.h"
 #include "theme.h"
 #include "home.h"
 #include "lvgl.h"
@@ -522,6 +523,7 @@ void show(void)
     s_update_timer = lv_timer_create(update_timer_cb, 200, nullptr);
     update_timer_cb(s_update_timer); // Execute first run immediately
 
+    navigation::attach(s_screen);
     lv_scr_load_anim(s_screen, LV_SCR_LOAD_ANIM_FADE_IN, 260, 0, true);
 }
 
