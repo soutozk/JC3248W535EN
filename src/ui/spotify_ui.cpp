@@ -412,7 +412,7 @@ void show(void)
     lv_obj_align(s_header, LV_ALIGN_TOP_MID, 0, 10);
 
     lv_obj_t *title = lv_label_create(s_header);
-    lv_label_set_text(title, "SPOTIFY PLAYER");
+    lv_label_set_text(title, "SPOTIFY");
     theme::apply_title(title);
     lv_obj_align(title, LV_ALIGN_LEFT_MID, 8, 0);
 
@@ -515,14 +515,14 @@ void show(void)
     lv_label_set_text(back_lbl, LV_SYMBOL_HOME "  VOLTAR");
     lv_obj_center(back_lbl);
 
-    lv_obj_t *btn_mode = lv_btn_create(s_info_panel);
-    theme::apply_subtle_button(btn_mode);
-    lv_obj_set_size(btn_mode, 176, 32);
-    lv_obj_align(btn_mode, LV_ALIGN_BOTTOM_MID, 0, -60);
-    lv_obj_add_event_cb(btn_mode, cover_click_cb, LV_EVENT_CLICKED, nullptr);
-    lv_obj_t *mode_lbl = lv_label_create(btn_mode);
-    lv_label_set_text(mode_lbl, LV_SYMBOL_EYE_OPEN "  MODO DA CAPA");
-    lv_obj_center(mode_lbl);
+    // lv_obj_t *btn_mode = lv_btn_create(s_info_panel);
+    // theme::apply_subtle_button(btn_mode);
+    // lv_obj_set_size(btn_mode, 176, 32);
+    // lv_obj_align(btn_mode, LV_ALIGN_BOTTOM_MID, 0, -60);
+    // lv_obj_add_event_cb(btn_mode, cover_click_cb, LV_EVENT_CLICKED, nullptr);
+    // lv_obj_t *mode_lbl = lv_label_create(btn_mode);
+    // lv_label_set_text(mode_lbl, LV_SYMBOL_EYE_OPEN "  MODO DA CAPA");
+    // lv_obj_center(mode_lbl);
 
     // Initialize layout positions
     update_fullscreen_layout();

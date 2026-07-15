@@ -198,14 +198,6 @@ void show()
     snprintf(brightness_text, sizeof(brightness_text), "BRILHO %d%%", s_brightness);
     label(panel, brightness_text, &lv_font_montserrat_16, amber_hot(), LV_ALIGN_TOP_RIGHT, -10, 14);
 
-    char rotation_text[32];
-    snprintf(rotation_text, sizeof(rotation_text), "ROTACAO %s", rotation_name());
-    label(panel, rotation_text, &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_TOP_RIGHT, -10, 38);
-
-    create_palette_card(panel, "DEMO", theme::PaletteId::Demo, 10, 58,
-                        lv_color_hex(0x03A9C2), lv_color_hex(0x2196F3), lv_color_hex(0xF44336));
-    create_palette_card(panel, "CYBER", theme::PaletteId::Cyber, 190, 58,
-                        lv_color_hex(0x00E5FF), lv_color_hex(0x006CFF), lv_color_hex(0x9B31FF));
     create_palette_card(panel, "LARANJA", theme::PaletteId::Orange, 10, 106,
                         lv_color_hex(0xFF9F1C), lv_color_hex(0xFF5A1F), lv_color_hex(0xFFD166));
     create_palette_card(panel, "VERMELHO", theme::PaletteId::Red, 190, 106,

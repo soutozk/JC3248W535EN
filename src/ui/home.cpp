@@ -124,14 +124,14 @@ static void create_oel_display(lv_obj_t *screen)
     lv_obj_set_style_shadow_width(display, 18, 0);
     lv_obj_set_style_shadow_opa(display, LV_OPA_20, 0);
 
-    label(display, "PIONEER", &lv_font_montserrat_24, amber_hot(), LV_ALIGN_TOP_LEFT, 10, 6);
-    label(display, "DOLPHIN OEL", &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_TOP_RIGHT, -10, 12);
+    label(display, "", &lv_font_montserrat_24, amber_hot(), LV_ALIGN_TOP_LEFT, 10, 6);
+    label(display, "version 1.0", &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_TOP_RIGHT, -10, 12);
 
     lv_obj_t *wave = label(display, "~  ~  ~", &lv_font_montserrat_36, theme::colors().blue, LV_ALIGN_CENTER, -130, 6);
     lv_obj_set_style_opa(wave, LV_OPA_30, 0);
     theme::pulse_opacity(wave, LV_OPA_10, LV_OPA_50, 900);
 
-    label(display, "GOLFINHO", &lv_font_montserrat_34, amber_hot(), LV_ALIGN_CENTER, 76, 0);
+    label(display, "SOUTOZK", &lv_font_montserrat_34, amber_hot(), LV_ALIGN_CENTER, 76, 0);
     label(display, "DSP  CD-MD  AUX  NAV", &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
 
     create_equalizer(display);
@@ -185,7 +185,7 @@ void show()
     lv_obj_set_style_border_color(top, amber(), 0);
     lv_obj_set_style_border_width(top, 1, 0);
 
-    label(top, "PIONEER OEL-90", &lv_font_montserrat_24, amber_hot(), LV_ALIGN_LEFT_MID, 10, 0);
+    label(top, "HOME", &lv_font_montserrat_24, amber_hot(), LV_ALIGN_LEFT_MID, 10, 0);
     label(top, assets::project_name(), &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_RIGHT_MID, -10, 0);
 
     create_oel_display(screen);
@@ -195,9 +195,9 @@ void show()
     lv_obj_set_style_border_color(button_deck, amber(), 0);
     lv_obj_set_style_border_width(button_deck, 1, 0);
 
-    home_button(button_deck, LV_SYMBOL_VIDEO " GIF", "MIDIA DO SD", LV_ALIGN_LEFT_MID, 10, 0, 1);
-    home_button(button_deck, LV_SYMBOL_AUDIO " SPOT", "CONTROLE BLE", LV_ALIGN_CENTER, 0, 0, 2);
-    home_button(button_deck, LV_SYMBOL_SETTINGS " SET", "TEMA / SD", LV_ALIGN_RIGHT_MID, -10, 0, 3);
+    home_button(button_deck, LV_SYMBOL_VIDEO " GIF", "", LV_ALIGN_LEFT_MID, 10, 0, 1);
+    home_button(button_deck, LV_SYMBOL_AUDIO " SPOT", "", LV_ALIGN_CENTER, 0, 0, 2);
+    home_button(button_deck, LV_SYMBOL_SETTINGS " SET", "", LV_ALIGN_RIGHT_MID, -10, 0, 3);
 
     create_status_strip(screen);
     navigation::attach(screen);

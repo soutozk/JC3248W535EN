@@ -205,10 +205,6 @@ void show_list()
     lv_obj_align(back, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_add_event_cb(back, back_to_home_cb, LV_EVENT_CLICKED, nullptr);
 
-    lv_obj_t *back_label = lv_label_create(back);
-    lv_label_set_text(back_label, LV_SYMBOL_LEFT);
-    lv_obj_center(back_label);
-
     lv_obj_t *title = lv_label_create(header);
     lv_label_set_text(title, "GIF PLAYER");
     theme::apply_title(title);

@@ -6,7 +6,7 @@ namespace ui {
 namespace theme {
 
 static bool s_ready = false;
-static PaletteId s_palette_id = PaletteId::Demo;
+static PaletteId s_palette_id = PaletteId::Orange;
 
 static Palette s_palette = {
     lv_color_hex(0xF2F4F7),
@@ -31,17 +31,6 @@ static lv_style_t s_muted;
 static Palette make_palette(PaletteId id)
 {
     switch(id) {
-        case PaletteId::Demo:
-            return {
-                lv_color_hex(0xF2F4F7),
-                lv_color_hex(0xFFFFFF),
-                lv_color_hex(0xE7EDF2),
-                lv_color_hex(0x03A9C2),
-                lv_color_hex(0x2196F3),
-                lv_color_hex(0xF44336),
-                lv_color_hex(0x263238),
-                lv_color_hex(0x87909A),
-            };
         case PaletteId::Orange:
             return {
                 lv_color_hex(0x060402),
@@ -74,18 +63,6 @@ static Palette make_palette(PaletteId id)
                 lv_color_hex(0xB7F25C),
                 lv_color_hex(0xF2FFF5),
                 lv_color_hex(0x7BA887),
-            };
-        case PaletteId::Cyber:
-        default:
-            return {
-                lv_color_hex(0x050505),
-                lv_color_hex(0x111111),
-                lv_color_hex(0x17171C),
-                lv_color_hex(0x00E5FF),
-                lv_color_hex(0x006CFF),
-                lv_color_hex(0x9B31FF),
-                lv_color_hex(0xFFFFFF),
-                lv_color_hex(0x7A8A90),
             };
     }
 }
