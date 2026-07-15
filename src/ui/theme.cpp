@@ -9,14 +9,14 @@ static bool s_ready = false;
 static PaletteId s_palette_id = PaletteId::Orange;
 
 static Palette s_palette = {
-    lv_color_hex(0xF2F4F7),
-    lv_color_hex(0xFFFFFF),
-    lv_color_hex(0xE7EDF2),
-    lv_color_hex(0x03A9C2),
-    lv_color_hex(0x2196F3),
-    lv_color_hex(0xF44336),
-    lv_color_hex(0x263238),
-    lv_color_hex(0x87909A),
+    lv_color_hex(0x060402),
+    lv_color_hex(0x16100A),
+    lv_color_hex(0x21150B),
+    lv_color_hex(0xFF9F1C),
+    lv_color_hex(0xFF5A1F),
+    lv_color_hex(0xFFD166),
+    lv_color_hex(0xFFF8EF),
+    lv_color_hex(0xB89A78),
 };
 
 static lv_style_t s_panel;
@@ -31,6 +31,17 @@ static lv_style_t s_muted;
 static Palette make_palette(PaletteId id)
 {
     switch(id) {
+        case PaletteId::Demo:
+            return {
+                lv_color_hex(0xF2F4F7),
+                lv_color_hex(0xFFFFFF),
+                lv_color_hex(0xE7EDF2),
+                lv_color_hex(0x03A9C2),
+                lv_color_hex(0x2196F3),
+                lv_color_hex(0xF44336),
+                lv_color_hex(0x263238),
+                lv_color_hex(0x87909A),
+            };
         case PaletteId::Orange:
             return {
                 lv_color_hex(0x060402),
@@ -63,6 +74,18 @@ static Palette make_palette(PaletteId id)
                 lv_color_hex(0xB7F25C),
                 lv_color_hex(0xF2FFF5),
                 lv_color_hex(0x7BA887),
+            };
+        case PaletteId::Cyber:
+        default:
+            return {
+                lv_color_hex(0x050505),
+                lv_color_hex(0x111111),
+                lv_color_hex(0x17171C),
+                lv_color_hex(0x00E5FF),
+                lv_color_hex(0x006CFF),
+                lv_color_hex(0x9B31FF),
+                lv_color_hex(0xFFFFFF),
+                lv_color_hex(0x7A8A90),
             };
     }
 }
@@ -146,6 +169,26 @@ PaletteId cycle_palette()
     return next;
 }
 
+const lv_font_t *font_small()
+{
+    return &lv_font_unscii_8;
+}
+
+const lv_font_t *font_body()
+{
+    return &lv_font_unscii_16;
+}
+
+const lv_font_t *font_title()
+{
+    return &lv_font_unscii_16;
+}
+
+const lv_font_t *font_icon()
+{
+    return &lv_font_montserrat_16;
+}
+
 void init()
 {
     if(s_ready) {
@@ -172,7 +215,7 @@ void init()
     lv_style_set_pad_left(&s_button, 12);
     lv_style_set_pad_right(&s_button, 12);
     lv_style_set_text_color(&s_button, s_palette.text);
-    lv_style_set_text_font(&s_button, &lv_font_montserrat_20);
+    lv_style_set_text_font(&s_button, font_body());
     lv_style_set_shadow_color(&s_button, s_palette.cyan);
     lv_style_set_shadow_width(&s_button, 4);
     lv_style_set_shadow_opa(&s_button, LV_OPA_10);
@@ -196,20 +239,20 @@ void init()
     lv_style_set_border_width(&s_subtle_button, 1);
     lv_style_set_radius(&s_subtle_button, 8);
     lv_style_set_text_color(&s_subtle_button, s_palette.text);
-    lv_style_set_text_font(&s_subtle_button, &lv_font_montserrat_16);
+    lv_style_set_text_font(&s_subtle_button, font_body());
     lv_style_set_pad_all(&s_subtle_button, 6);
 
     lv_style_init(&s_title);
     lv_style_set_text_color(&s_title, s_palette.cyan);
-    lv_style_set_text_font(&s_title, &lv_font_montserrat_24);
+    lv_style_set_text_font(&s_title, font_title());
 
     lv_style_init(&s_text);
     lv_style_set_text_color(&s_text, s_palette.text);
-    lv_style_set_text_font(&s_text, &lv_font_montserrat_16);
+    lv_style_set_text_font(&s_text, font_body());
 
     lv_style_init(&s_muted);
     lv_style_set_text_color(&s_muted, s_palette.muted);
-    lv_style_set_text_font(&s_muted, &lv_font_montserrat_12);
+    lv_style_set_text_font(&s_muted, font_small());
 
     s_ready = true;
 }

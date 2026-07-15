@@ -6,8 +6,8 @@ O firmware monta o cartao em `/sd` e procura os arquivos abaixo. Use FAT32 e nom
 /sd
 ├── intro
 │   ├── boot.gif       # primeira opcao da tela de inicializacao
-│   ├── boot.png       # fallback do GIF
-│   └── logo.png       # fallback da imagem de intro
+│   ├── boot.png       # fallback do GIF, idealmente 480x320
+│   └── logo.png       # logo da Home e fallback da intro
 ├── backgrounds
 │   └── home.png       # foto de fundo da Home
 ├── gifs
@@ -19,6 +19,8 @@ O firmware monta o cartao em `/sd` e procura os arquivos abaixo. Use FAT32 e nom
 ```
 
 Prioridade da inicializacao: `intro/boot.gif`, `intro/boot.png`, `intro/logo.png`, `logo.png` e, por ultimo, o logo textual.
+
+Na Home, o visor OEL usa `intro/logo.png` quando existir; se nao existir, tenta `logo.png` e depois volta para texto.
 
 Para o fundo da Home, prefira uma imagem PNG de 480x320 em `backgrounds/home.png`. O nome antigo `home_bg.png` continua funcionando.
 

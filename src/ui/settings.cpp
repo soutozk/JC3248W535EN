@@ -152,7 +152,7 @@ static void create_palette_card(lv_obj_t *parent, const char *name, theme::Palet
     lv_obj_align(card, LV_ALIGN_TOP_LEFT, x, y);
     lv_obj_add_event_cb(card, palette_cb, LV_EVENT_CLICKED, reinterpret_cast<void *>(static_cast<uintptr_t>(id)));
 
-    label(card, name, &lv_font_montserrat_14,
+    label(card, name, theme::font_body(),
           theme::palette_id() == id ? lv_color_white() : theme::colors().text,
           LV_ALIGN_LEFT_MID, 8, 0);
 
@@ -182,8 +182,8 @@ void show()
     lv_obj_set_size(header, lv_disp_get_hor_res(nullptr) - 24, 44);
     lv_obj_align(header, LV_ALIGN_TOP_MID, 0, 10);
     lv_obj_set_style_border_color(header, amber(), 0);
-    label(header, "CONFIGURACOES", &lv_font_montserrat_24, amber_hot(), LV_ALIGN_LEFT_MID, 8, 0);
-    label(header, "OEL SETUP", &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_RIGHT_MID, -8, 0);
+    label(header, "CONFIGURACOES", theme::font_title(), amber_hot(), LV_ALIGN_LEFT_MID, 8, 0);
+    label(header, "OEL SETUP", theme::font_small(), theme::colors().muted, LV_ALIGN_RIGHT_MID, -8, 0);
 
     lv_obj_t *panel = theme::create_panel(screen);
     lv_obj_set_size(panel, lv_disp_get_hor_res(nullptr) - 24, 230);
@@ -191,12 +191,12 @@ void show()
     lv_obj_set_style_bg_color(panel, theme::colors().panel, 0);
     lv_obj_set_style_border_color(panel, amber(), 0);
 
-    label(panel, "TEMA ATUAL", &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_TOP_LEFT, 10, 8);
-    label(panel, theme::palette_name(), &lv_font_montserrat_24, amber_hot(), LV_ALIGN_TOP_LEFT, 10, 24);
+    label(panel, "TEMA ATUAL", theme::font_small(), theme::colors().muted, LV_ALIGN_TOP_LEFT, 10, 8);
+    label(panel, theme::palette_name(), theme::font_title(), amber_hot(), LV_ALIGN_TOP_LEFT, 10, 24);
 
     char brightness_text[32];
     snprintf(brightness_text, sizeof(brightness_text), "BRILHO %d%%", s_brightness);
-    label(panel, brightness_text, &lv_font_montserrat_16, amber_hot(), LV_ALIGN_TOP_RIGHT, -10, 14);
+    label(panel, brightness_text, theme::font_body(), amber_hot(), LV_ALIGN_TOP_RIGHT, -10, 14);
 
     create_palette_card(panel, "LARANJA", theme::PaletteId::Orange, 10, 106,
                         lv_color_hex(0xFF9F1C), lv_color_hex(0xFF5A1F), lv_color_hex(0xFFD166));
@@ -210,7 +210,7 @@ void show()
     button(panel, "GIRAR", 104, 34, LV_ALIGN_BOTTOM_RIGHT, -10, -48, action_cb, reinterpret_cast<void *>(5));
 
     button(panel, "SCAN SD", 132, 36, LV_ALIGN_BOTTOM_LEFT, 10, -8, action_cb, reinterpret_cast<void *>(1));
-    button(panel, LV_SYMBOL_HOME " VOLTAR", 132, 36, LV_ALIGN_BOTTOM_RIGHT, -10, -8, action_cb, reinterpret_cast<void *>(2));
+    button(panel, "VOLTAR", 132, 36, LV_ALIGN_BOTTOM_RIGHT, -10, -8, action_cb, reinterpret_cast<void *>(2));
 
     navigation::attach(screen);
     lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 220, 0, true);

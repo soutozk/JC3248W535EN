@@ -312,7 +312,7 @@ static void create_stage_layer(lv_obj_t *parent)
     lv_label_set_text(s_stage_title, "Sem Musica");
     lv_label_set_long_mode(s_stage_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_width(s_stage_title, 238);
-    lv_obj_set_style_text_font(s_stage_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(s_stage_title, theme::font_title(), 0);
     lv_obj_set_style_text_color(s_stage_title, theme::colors().text, 0);
     lv_obj_align(s_stage_title, LV_ALIGN_BOTTOM_LEFT, 18, -58);
 
@@ -320,7 +320,7 @@ static void create_stage_layer(lv_obj_t *parent)
     lv_label_set_text(s_stage_artist, "Desconectado");
     lv_label_set_long_mode(s_stage_artist, LV_LABEL_LONG_DOT);
     lv_obj_set_width(s_stage_artist, 238);
-    lv_obj_set_style_text_font(s_stage_artist, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(s_stage_artist, theme::font_body(), 0);
     lv_obj_set_style_text_color(s_stage_artist, theme::colors().muted, 0);
     lv_obj_align(s_stage_artist, LV_ALIGN_BOTTOM_LEFT, 18, -32);
 }
@@ -447,7 +447,7 @@ void show(void)
     lv_label_set_text(s_title_lbl, "Sem Musica");
     lv_label_set_long_mode(s_title_lbl, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_width(s_title_lbl, 176);
-    lv_obj_set_style_text_font(s_title_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(s_title_lbl, theme::font_title(), 0);
     lv_obj_set_style_text_color(s_title_lbl, theme::colors().text, 0);
     lv_obj_align(s_title_lbl, LV_ALIGN_TOP_LEFT, 8, 12);
 
@@ -462,7 +462,7 @@ void show(void)
     // Connection Status
     s_status_lbl = lv_label_create(s_info_panel);
     lv_label_set_text(s_status_lbl, "STATUS: DESCONECTADO");
-    lv_obj_set_style_text_font(s_status_lbl, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(s_status_lbl, theme::font_small(), 0);
     lv_obj_set_style_text_color(s_status_lbl, theme::colors().purple, 0);
     lv_obj_align(s_status_lbl, LV_ALIGN_TOP_LEFT, 8, 64);
 
@@ -484,6 +484,7 @@ void show(void)
     lv_obj_add_event_cb(btn_prev, control_click_cb, LV_EVENT_CLICKED, (void *)2); // 2 = Prev
     lv_obj_t *prev_lbl = lv_label_create(btn_prev);
     lv_label_set_text(prev_lbl, LV_SYMBOL_PREV);
+    lv_obj_set_style_text_font(prev_lbl, theme::font_icon(), 0);
     lv_obj_center(prev_lbl);
 
     // Play/Pause Button
@@ -493,6 +494,7 @@ void show(void)
     lv_obj_add_event_cb(s_btn_play, control_click_cb, LV_EVENT_CLICKED, (void *)3); // 3 = Play/Pause
     s_btn_play_lbl = lv_label_create(s_btn_play);
     lv_label_set_text(s_btn_play_lbl, LV_SYMBOL_PLAY "/" LV_SYMBOL_PAUSE);
+    lv_obj_set_style_text_font(s_btn_play_lbl, theme::font_icon(), 0);
     lv_obj_center(s_btn_play_lbl);
 
     // Next Button
@@ -502,6 +504,7 @@ void show(void)
     lv_obj_add_event_cb(btn_next, control_click_cb, LV_EVENT_CLICKED, (void *)1); // 1 = Next
     lv_obj_t *next_lbl = lv_label_create(btn_next);
     lv_label_set_text(next_lbl, LV_SYMBOL_NEXT);
+    lv_obj_set_style_text_font(next_lbl, theme::font_icon(), 0);
     lv_obj_center(next_lbl);
 
     // Back to Home Button
@@ -512,7 +515,7 @@ void show(void)
     lv_obj_add_event_cb(btn_back, control_click_cb, LV_EVENT_CLICKED, (void *)4); // 4 = Back
 
     lv_obj_t *back_lbl = lv_label_create(btn_back);
-    lv_label_set_text(back_lbl, LV_SYMBOL_HOME "  VOLTAR");
+    lv_label_set_text(back_lbl, "VOLTAR");
     lv_obj_center(back_lbl);
 
     // lv_obj_t *btn_mode = lv_btn_create(s_info_panel);

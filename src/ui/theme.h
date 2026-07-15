@@ -30,6 +30,10 @@ PaletteId palette_id();
 const char *palette_name();
 void set_palette(PaletteId id);
 PaletteId cycle_palette();
+const lv_font_t *font_small();
+const lv_font_t *font_body();
+const lv_font_t *font_title();
+const lv_font_t *font_icon();
 
 void apply_screen(lv_obj_t *obj);
 void apply_panel(lv_obj_t *obj);

@@ -74,6 +74,7 @@ static lv_obj_t *create_overlay_button(lv_obj_t *screen, lv_event_cb_t cb)
 
     lv_obj_t *label = lv_label_create(button);
     lv_label_set_text(label, LV_SYMBOL_LEFT);
+    lv_obj_set_style_text_font(label, theme::font_icon(), 0);
     lv_obj_center(label);
     return button;
 }
@@ -218,6 +219,7 @@ void show_list()
 
     lv_obj_t *refresh_label = lv_label_create(refresh);
     lv_label_set_text(refresh_label, LV_SYMBOL_REFRESH);
+    lv_obj_set_style_text_font(refresh_label, theme::font_icon(), 0);
     lv_obj_center(refresh_label);
 
     lv_obj_t *panel = theme::create_panel(screen);

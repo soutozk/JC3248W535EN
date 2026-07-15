@@ -138,7 +138,7 @@ static lv_obj_t *nav_button(lv_obj_t *parent, const char *text, lv_coord_t y, ui
 
     lv_obj_t *text_label = lv_label_create(button);
     lv_label_set_text(text_label, text);
-    lv_obj_set_style_text_font(text_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(text_label, theme::font_body(), 0);
     lv_obj_set_style_text_color(text_label, theme::colors().text, 0);
     lv_obj_align(text_label, LV_ALIGN_LEFT_MID, 8, 0);
     return button;
@@ -267,17 +267,17 @@ void attach(lv_obj_t *screen)
     lv_obj_set_style_bg_color(s_panel, theme::colors().panel, 0);
     lv_obj_set_style_border_color(s_panel, theme::colors().blue, 0);
 
-    label(s_panel, "NAVEGACAO", &lv_font_montserrat_20, theme::colors().text,
+    label(s_panel, "NAVEGACAO", theme::font_title(), theme::colors().text,
           LV_ALIGN_TOP_LEFT, 10, 10);
-    label(s_panel, "MENU LATERAL", &lv_font_montserrat_12, theme::colors().muted,
+    label(s_panel, "MENU LATERAL", theme::font_small(), theme::colors().muted,
           LV_ALIGN_TOP_LEFT, 12, 36);
 
-    nav_button(s_panel, LV_SYMBOL_HOME "  HOME", 62, 0);
-    nav_button(s_panel, LV_SYMBOL_VIDEO "  GIF", 104, 1);
-    nav_button(s_panel, LV_SYMBOL_AUDIO "  SPOTIFY", 146, 2);
-    nav_button(s_panel, LV_SYMBOL_SETTINGS "  CONFIG", 188, 3);
-    nav_button(s_panel, LV_SYMBOL_REFRESH "  SCAN SD", 230, 4);
-    nav_button(s_panel, LV_SYMBOL_CLOSE "  FECHAR", 272, 5);
+    nav_button(s_panel, "HOME", 62, 0);
+    nav_button(s_panel, "GIF", 104, 1);
+    nav_button(s_panel, "SPOTIFY", 146, 2);
+    nav_button(s_panel, "CONFIG", 188, 3);
+    nav_button(s_panel, "SCAN SD", 230, 4);
+    nav_button(s_panel, "FECHAR", 272, 5);
 
     lv_obj_move_foreground(s_overlay);
 }
