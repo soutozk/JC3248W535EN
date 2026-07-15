@@ -6,17 +6,17 @@ namespace ui {
 namespace theme {
 
 static bool s_ready = false;
-static PaletteId s_palette_id = PaletteId::Cyber;
+static PaletteId s_palette_id = PaletteId::Demo;
 
 static Palette s_palette = {
-    lv_color_hex(0x050505),
-    lv_color_hex(0x111111),
-    lv_color_hex(0x17171C),
-    lv_color_hex(0x00E5FF),
-    lv_color_hex(0x006CFF),
-    lv_color_hex(0x9B31FF),
+    lv_color_hex(0xF2F4F7),
     lv_color_hex(0xFFFFFF),
-    lv_color_hex(0x7A8A90),
+    lv_color_hex(0xE7EDF2),
+    lv_color_hex(0x03A9C2),
+    lv_color_hex(0x2196F3),
+    lv_color_hex(0xF44336),
+    lv_color_hex(0x263238),
+    lv_color_hex(0x87909A),
 };
 
 static lv_style_t s_panel;
@@ -31,6 +31,17 @@ static lv_style_t s_muted;
 static Palette make_palette(PaletteId id)
 {
     switch(id) {
+        case PaletteId::Demo:
+            return {
+                lv_color_hex(0xF2F4F7),
+                lv_color_hex(0xFFFFFF),
+                lv_color_hex(0xE7EDF2),
+                lv_color_hex(0x03A9C2),
+                lv_color_hex(0x2196F3),
+                lv_color_hex(0xF44336),
+                lv_color_hex(0x263238),
+                lv_color_hex(0x87909A),
+            };
         case PaletteId::Orange:
             return {
                 lv_color_hex(0x060402),
@@ -108,6 +119,8 @@ PaletteId palette_id()
 const char *palette_name()
 {
     switch(s_palette_id) {
+        case PaletteId::Demo:
+            return "DEMO";
         case PaletteId::Orange:
             return "LARANJA";
         case PaletteId::Red:
@@ -133,8 +146,11 @@ void set_palette(PaletteId id)
 
 PaletteId cycle_palette()
 {
-    PaletteId next = PaletteId::Cyber;
+    PaletteId next = PaletteId::Demo;
     switch(s_palette_id) {
+        case PaletteId::Demo:
+            next = PaletteId::Cyber;
+            break;
         case PaletteId::Cyber:
             next = PaletteId::Orange;
             break;
@@ -146,7 +162,7 @@ PaletteId cycle_palette()
             break;
         case PaletteId::Green:
         default:
-            next = PaletteId::Cyber;
+            next = PaletteId::Demo;
             break;
     }
     set_palette(next);
@@ -164,7 +180,7 @@ void init()
     lv_style_set_bg_opa(&s_panel, LV_OPA_COVER);
     lv_style_set_border_color(&s_panel, s_palette.cyan);
     lv_style_set_border_width(&s_panel, 1);
-    lv_style_set_radius(&s_panel, 0);
+    lv_style_set_radius(&s_panel, 6);
     lv_style_set_pad_all(&s_panel, 8);
     lv_style_set_shadow_color(&s_panel, s_palette.blue);
     lv_style_set_shadow_width(&s_panel, 8);
@@ -172,23 +188,21 @@ void init()
 
     lv_style_init(&s_button);
     lv_style_set_bg_color(&s_button, s_palette.blue);
-    lv_style_set_bg_grad_color(&s_button, s_palette.panel);
-    lv_style_set_bg_grad_dir(&s_button, LV_GRAD_DIR_HOR);
-    lv_style_set_bg_opa(&s_button, LV_OPA_80);
-    lv_style_set_border_color(&s_button, s_palette.cyan);
+    lv_style_set_bg_opa(&s_button, LV_OPA_COVER);
+    lv_style_set_border_color(&s_button, s_palette.blue);
     lv_style_set_border_width(&s_button, 1);
-    lv_style_set_radius(&s_button, 0);
+    lv_style_set_radius(&s_button, 8);
     lv_style_set_pad_left(&s_button, 12);
     lv_style_set_pad_right(&s_button, 12);
     lv_style_set_text_color(&s_button, s_palette.text);
     lv_style_set_text_font(&s_button, &lv_font_montserrat_20);
     lv_style_set_shadow_color(&s_button, s_palette.cyan);
-    lv_style_set_shadow_width(&s_button, 10);
-    lv_style_set_shadow_opa(&s_button, LV_OPA_20);
+    lv_style_set_shadow_width(&s_button, 4);
+    lv_style_set_shadow_opa(&s_button, LV_OPA_10);
 
     lv_style_init(&s_button_pressed);
     lv_style_set_bg_color(&s_button_pressed, s_palette.cyan);
-    lv_style_set_text_color(&s_button_pressed, lv_color_hex(0x050505));
+    lv_style_set_text_color(&s_button_pressed, s_palette.text);
     lv_style_set_shadow_opa(&s_button_pressed, LV_OPA_50);
 
     lv_style_init(&s_button_disabled);
@@ -199,11 +213,11 @@ void init()
     lv_style_set_shadow_opa(&s_button_disabled, LV_OPA_TRANSP);
 
     lv_style_init(&s_subtle_button);
-    lv_style_set_bg_color(&s_subtle_button, lv_color_hex(0x070A0C));
-    lv_style_set_bg_opa(&s_subtle_button, LV_OPA_70);
-    lv_style_set_border_color(&s_subtle_button, s_palette.cyan);
+    lv_style_set_bg_color(&s_subtle_button, s_palette.panel);
+    lv_style_set_bg_opa(&s_subtle_button, LV_OPA_COVER);
+    lv_style_set_border_color(&s_subtle_button, s_palette.panel_alt);
     lv_style_set_border_width(&s_subtle_button, 1);
-    lv_style_set_radius(&s_subtle_button, 0);
+    lv_style_set_radius(&s_subtle_button, 8);
     lv_style_set_text_color(&s_subtle_button, s_palette.text);
     lv_style_set_text_font(&s_subtle_button, &lv_font_montserrat_16);
     lv_style_set_pad_all(&s_subtle_button, 6);
@@ -306,6 +320,7 @@ static void make_line(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t w
 
 void add_scanlines(lv_obj_t *parent, lv_opa_t opa)
 {
+    if(s_palette_id == PaletteId::Demo) return;
     init();
     lv_coord_t h = lv_disp_get_ver_res(NULL);
     lv_coord_t w = lv_disp_get_hor_res(NULL);
@@ -316,6 +331,7 @@ void add_scanlines(lv_obj_t *parent, lv_opa_t opa)
 
 void add_frame_ticks(lv_obj_t *parent)
 {
+    if(s_palette_id == PaletteId::Demo) return;
     init();
     lv_coord_t w = lv_disp_get_hor_res(NULL);
     lv_coord_t h = lv_disp_get_ver_res(NULL);

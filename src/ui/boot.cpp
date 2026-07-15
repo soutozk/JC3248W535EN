@@ -5,6 +5,7 @@
 #include "theme.h"
 
 #include "lvgl.h"
+#include "src/extra/libs/gif/lv_gif.h"
 
 namespace ui {
 namespace boot {
@@ -64,7 +65,16 @@ void show()
     lv_obj_set_style_shadow_opa(glow_panel, LV_OPA_30, 0);
     theme::pulse_opacity(glow_panel, LV_OPA_20, LV_OPA_80, 700);
 
-    if(assets::logo_available()) {
+    if(assets::intro_gif_available()) {
+        lv_obj_t *intro = lv_gif_create(screen);
+        lv_gif_set_src(intro, assets::intro_gif_lvgl_path());
+        lv_obj_center(intro);
+    } else if(assets::intro_image_available()) {
+        lv_obj_t *logo = lv_img_create(screen);
+        lv_img_set_src(logo, assets::intro_image_lvgl_path());
+        lv_obj_center(logo);
+        lv_obj_fade_in(logo, 420, 80);
+    } else if(assets::logo_available()) {
         lv_obj_t *logo = lv_img_create(screen);
         lv_img_set_src(logo, assets::logo_lvgl_path());
         lv_obj_center(logo);
@@ -74,7 +84,7 @@ void show()
     }
 
     lv_obj_t *tag = lv_label_create(screen);
-    lv_label_set_text(tag, "CYBER OEL BOOT");
+    lv_label_set_text(tag, "LVGL DEMO BOOT");
     theme::apply_muted_text(tag);
     lv_obj_align(tag, LV_ALIGN_BOTTOM_MID, 0, -22);
 

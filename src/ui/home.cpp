@@ -20,16 +20,12 @@ void show();
 
 static lv_color_t amber()
 {
-    return theme::palette_id() == theme::PaletteId::Orange
-        ? theme::colors().cyan
-        : lv_color_hex(0xFFB22A);
+    return theme::colors().blue;
 }
 
 static lv_color_t amber_hot()
 {
-    return theme::palette_id() == theme::PaletteId::Orange
-        ? theme::colors().purple
-        : lv_color_hex(0xFFE06B);
+    return theme::colors().text;
 }
 
 static lv_obj_t *block(lv_obj_t *parent, lv_coord_t w, lv_coord_t h, lv_color_t color, lv_opa_t opa)
@@ -87,12 +83,11 @@ static lv_obj_t *home_button(lv_obj_t *parent, const char *title, const char *su
 {
     lv_obj_t *btn = lv_btn_create(parent);
     theme::apply_button(btn, true);
-    lv_obj_set_size(btn, 178, 70);
+    lv_obj_set_size(btn, 132, 70);
     lv_obj_align(btn, align, x, y);
     lv_obj_add_event_cb(btn, route_cb, LV_EVENT_CLICKED, reinterpret_cast<void *>(route));
 
-    lv_obj_set_style_bg_color(btn, lv_color_hex(0x181006), 0);
-    lv_obj_set_style_bg_grad_color(btn, lv_color_hex(0x040302), 0);
+    lv_obj_set_style_bg_color(btn, theme::colors().panel, 0);
     lv_obj_set_style_border_color(btn, amber(), 0);
     lv_obj_set_style_shadow_color(btn, amber(), 0);
     lv_obj_set_style_shadow_width(btn, 8, 0);
@@ -123,7 +118,7 @@ static void create_oel_display(lv_obj_t *screen)
     lv_obj_t *display = theme::create_panel(screen);
     lv_obj_set_size(display, 438, 118);
     lv_obj_align(display, LV_ALIGN_TOP_MID, 0, 58);
-    lv_obj_set_style_bg_color(display, lv_color_hex(0x030805), 0);
+    lv_obj_set_style_bg_color(display, theme::colors().panel, 0);
     lv_obj_set_style_border_color(display, amber(), 0);
     lv_obj_set_style_shadow_color(display, amber(), 0);
     lv_obj_set_style_shadow_width(display, 18, 0);
@@ -144,7 +139,7 @@ static void create_oel_display(lv_obj_t *screen)
 
 static void create_status_strip(lv_obj_t *screen)
 {
-    lv_obj_t *strip = block(screen, lv_disp_get_hor_res(nullptr) - 24, 34, lv_color_hex(0x080603), LV_OPA_90);
+    lv_obj_t *strip = block(screen, lv_disp_get_hor_res(nullptr) - 24, 34, theme::colors().panel, LV_OPA_COVER);
     lv_obj_align(strip, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_set_style_border_color(strip, amber(), 0);
     lv_obj_set_style_border_width(strip, 1, 0);
@@ -158,16 +153,34 @@ static void create_status_strip(lv_obj_t *screen)
     label(strip, "SWIPE NAV: L/R/T/B", &lv_font_montserrat_12, amber(), LV_ALIGN_RIGHT_MID, -10, 0);
 }
 
+static void create_background(lv_obj_t *screen)
+{
+    if(!assets::home_background_available()) {
+        return;
+    }
+
+    lv_obj_t *background = lv_img_create(screen);
+    lv_img_set_src(background, assets::home_background_lvgl_path());
+    lv_obj_align(background, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_clear_flag(background, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t *overlay = block(screen, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr),
+                              lv_color_hex(0x000000),
+                              theme::palette_id() == theme::PaletteId::Demo ? LV_OPA_20 : LV_OPA_60);
+    lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+}
+
 void show()
 {
     theme::init();
 
     lv_obj_t *screen = lv_obj_create(nullptr);
     theme::apply_screen(screen);
+    create_background(screen);
     theme::add_frame_ticks(screen);
     theme::add_scanlines(screen, LV_OPA_10);
 
-    lv_obj_t *top = block(screen, lv_disp_get_hor_res(nullptr) - 24, 40, lv_color_hex(0x070604), LV_OPA_90);
+    lv_obj_t *top = block(screen, lv_disp_get_hor_res(nullptr) - 24, 40, theme::colors().panel, LV_OPA_COVER);
     lv_obj_align(top, LV_ALIGN_TOP_MID, 0, 10);
     lv_obj_set_style_border_color(top, amber(), 0);
     lv_obj_set_style_border_width(top, 1, 0);
@@ -177,7 +190,7 @@ void show()
 
     create_oel_display(screen);
 
-    lv_obj_t *button_deck = block(screen, lv_disp_get_hor_res(nullptr) - 24, 112, lv_color_hex(0x050403), LV_OPA_60);
+    lv_obj_t *button_deck = block(screen, lv_disp_get_hor_res(nullptr) - 24, 112, theme::colors().panel, LV_OPA_COVER);
     lv_obj_align(button_deck, LV_ALIGN_BOTTOM_MID, 0, -48);
     lv_obj_set_style_border_color(button_deck, amber(), 0);
     lv_obj_set_style_border_width(button_deck, 1, 0);

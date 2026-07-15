@@ -18,16 +18,12 @@ static lv_disp_rot_t s_rotation = LV_DISP_ROT_90;
 
 static lv_color_t amber()
 {
-    return theme::palette_id() == theme::PaletteId::Orange
-        ? theme::colors().cyan
-        : lv_color_hex(0xFFB22A);
+    return theme::colors().blue;
 }
 
 static lv_color_t amber_hot()
 {
-    return theme::palette_id() == theme::PaletteId::Orange
-        ? theme::colors().purple
-        : lv_color_hex(0xFFE06B);
+    return theme::colors().text;
 }
 
 static lv_obj_t *label(lv_obj_t *parent, const char *text, const lv_font_t *font,
@@ -156,7 +152,9 @@ static void create_palette_card(lv_obj_t *parent, const char *name, theme::Palet
     lv_obj_align(card, LV_ALIGN_TOP_LEFT, x, y);
     lv_obj_add_event_cb(card, palette_cb, LV_EVENT_CLICKED, reinterpret_cast<void *>(static_cast<uintptr_t>(id)));
 
-    label(card, name, &lv_font_montserrat_14, theme::colors().text, LV_ALIGN_LEFT_MID, 8, 0);
+    label(card, name, &lv_font_montserrat_14,
+          theme::palette_id() == id ? lv_color_white() : theme::colors().text,
+          LV_ALIGN_LEFT_MID, 8, 0);
 
     lv_color_t colors[] = {c1, c2, c3};
     for(size_t i = 0; i < 3; ++i) {
@@ -190,7 +188,7 @@ void show()
     lv_obj_t *panel = theme::create_panel(screen);
     lv_obj_set_size(panel, lv_disp_get_hor_res(nullptr) - 24, 230);
     lv_obj_align(panel, LV_ALIGN_BOTTOM_MID, 0, -12);
-    lv_obj_set_style_bg_color(panel, lv_color_hex(0x070604), 0);
+    lv_obj_set_style_bg_color(panel, theme::colors().panel, 0);
     lv_obj_set_style_border_color(panel, amber(), 0);
 
     label(panel, "TEMA ATUAL", &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_TOP_LEFT, 10, 8);
@@ -204,11 +202,13 @@ void show()
     snprintf(rotation_text, sizeof(rotation_text), "ROTACAO %s", rotation_name());
     label(panel, rotation_text, &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_TOP_RIGHT, -10, 38);
 
-    create_palette_card(panel, "CYBER", theme::PaletteId::Cyber, 10, 58,
+    create_palette_card(panel, "DEMO", theme::PaletteId::Demo, 10, 58,
+                        lv_color_hex(0x03A9C2), lv_color_hex(0x2196F3), lv_color_hex(0xF44336));
+    create_palette_card(panel, "CYBER", theme::PaletteId::Cyber, 190, 58,
                         lv_color_hex(0x00E5FF), lv_color_hex(0x006CFF), lv_color_hex(0x9B31FF));
-    create_palette_card(panel, "LARANJA", theme::PaletteId::Orange, 190, 58,
+    create_palette_card(panel, "LARANJA", theme::PaletteId::Orange, 10, 106,
                         lv_color_hex(0xFF9F1C), lv_color_hex(0xFF5A1F), lv_color_hex(0xFFD166));
-    create_palette_card(panel, "VERMELHO", theme::PaletteId::Red, 10, 106,
+    create_palette_card(panel, "VERMELHO", theme::PaletteId::Red, 190, 106,
                         lv_color_hex(0xFF3B30), lv_color_hex(0xB80F1D), lv_color_hex(0xFF8A80));
     create_palette_card(panel, "VERDE", theme::PaletteId::Green, 190, 106,
                         lv_color_hex(0x32D74B), lv_color_hex(0x0A7F3F), lv_color_hex(0xB7F25C));

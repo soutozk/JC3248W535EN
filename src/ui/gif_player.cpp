@@ -168,7 +168,7 @@ static void refresh_cb(lv_event_t *event)
 static lv_obj_t *create_row(lv_obj_t *parent, sd_browser::MediaFile *file)
 {
     lv_obj_t *row = lv_btn_create(parent);
-    theme::apply_button(row, true);
+    theme::apply_subtle_button(row);
     lv_obj_set_size(row, LV_PCT(100), 42);
     lv_obj_add_event_cb(row, open_media_cb, LV_EVENT_CLICKED, file);
 

@@ -27,19 +27,12 @@ static bool s_pressed = false;
 
 static constexpr lv_coord_t kEdgeSize = 34;
 static constexpr lv_coord_t kSwipeThreshold = 58;
+static constexpr lv_coord_t kDrawerWidth = 176;
+static constexpr lv_coord_t kDrawerInset = 8;
 
 static lv_color_t amber()
 {
-    return theme::palette_id() == theme::PaletteId::Orange
-        ? theme::colors().cyan
-        : lv_color_hex(0xFFB22A);
-}
-
-static lv_color_t amber_hot()
-{
-    return theme::palette_id() == theme::PaletteId::Orange
-        ? theme::colors().purple
-        : lv_color_hex(0xFFE06B);
+    return theme::colors().blue;
 }
 
 static lv_obj_t *block(lv_obj_t *parent, lv_coord_t w, lv_coord_t h, lv_color_t color, lv_opa_t opa)
@@ -78,46 +71,26 @@ static void open()
         return;
     }
 
-    lv_coord_t start_x = 0;
-    lv_coord_t start_y = 0;
-    switch(s_edge) {
-        case GestureEdge::Left:
-            start_x = -48;
-            break;
-        case GestureEdge::Right:
-            start_x = 48;
-            break;
-        case GestureEdge::Top:
-            start_y = -38;
-            break;
-        case GestureEdge::Bottom:
-            start_y = 38;
-            break;
-    }
+    const lv_coord_t screen_w = lv_disp_get_hor_res(nullptr);
+    const lv_coord_t final_x = s_edge == GestureEdge::Right
+        ? screen_w - kDrawerWidth - kDrawerInset
+        : kDrawerInset;
+    const lv_coord_t start_x = s_edge == GestureEdge::Right ? screen_w + 4 : -kDrawerWidth - 4;
 
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(s_overlay);
-    lv_obj_set_pos(s_panel, start_x, start_y);
+    lv_obj_set_pos(s_panel, start_x, kDrawerInset);
 
     lv_anim_t anim_x;
     lv_anim_init(&anim_x);
     lv_anim_set_var(&anim_x, s_panel);
-    lv_anim_set_values(&anim_x, start_x, 0);
+    lv_anim_set_values(&anim_x, start_x, final_x);
     lv_anim_set_time(&anim_x, 170);
     lv_anim_set_exec_cb(&anim_x, [](void *target, int32_t value) {
         lv_obj_set_x(static_cast<lv_obj_t *>(target), static_cast<lv_coord_t>(value));
     });
     lv_anim_start(&anim_x);
 
-    lv_anim_t anim_y;
-    lv_anim_init(&anim_y);
-    lv_anim_set_var(&anim_y, s_panel);
-    lv_anim_set_values(&anim_y, start_y, 0);
-    lv_anim_set_time(&anim_y, 170);
-    lv_anim_set_exec_cb(&anim_y, [](void *target, int32_t value) {
-        lv_obj_set_y(static_cast<lv_obj_t *>(target), static_cast<lv_coord_t>(value));
-    });
-    lv_anim_start(&anim_y);
 }
 
 static void route(uint16_t id)
@@ -146,11 +119,29 @@ static void route(uint16_t id)
     }
 }
 
-static void matrix_cb(lv_event_t *event)
+static void nav_item_cb(lv_event_t *event)
 {
-    if(lv_event_get_code(event) == LV_EVENT_VALUE_CHANGED) {
-        route(lv_btnmatrix_get_selected_btn(lv_event_get_target(event)));
+    if(lv_event_get_code(event) == LV_EVENT_CLICKED) {
+        route(static_cast<uint16_t>(reinterpret_cast<uintptr_t>(lv_event_get_user_data(event))));
     }
+}
+
+static lv_obj_t *nav_button(lv_obj_t *parent, const char *text, lv_coord_t y, uint16_t id)
+{
+    lv_obj_t *button = lv_btn_create(parent);
+    theme::apply_subtle_button(button);
+    lv_obj_set_size(button, kDrawerWidth - 24, 36);
+    lv_obj_align(button, LV_ALIGN_TOP_MID, 0, y);
+    lv_obj_add_event_cb(button, nav_item_cb, LV_EVENT_CLICKED,
+                        reinterpret_cast<void *>(static_cast<uintptr_t>(id)));
+    lv_obj_set_style_bg_color(button, theme::colors().panel_alt, 0);
+
+    lv_obj_t *text_label = lv_label_create(button);
+    lv_label_set_text(text_label, text);
+    lv_obj_set_style_text_font(text_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(text_label, theme::colors().text, 0);
+    lv_obj_align(text_label, LV_ALIGN_LEFT_MID, 8, 0);
+    return button;
 }
 
 static void overlay_cb(lv_event_t *event)
@@ -271,52 +262,22 @@ void attach(lv_obj_t *screen)
     lv_obj_add_event_cb(s_overlay, overlay_cb, LV_EVENT_CLICKED, nullptr);
 
     s_panel = theme::create_panel(s_overlay);
-    lv_obj_set_size(s_panel, 338, 230);
-    lv_obj_center(s_panel);
-    lv_obj_set_style_bg_color(s_panel, lv_color_hex(0x080603), 0);
-    lv_obj_set_style_border_color(s_panel, amber(), 0);
-    lv_obj_set_style_shadow_color(s_panel, amber(), 0);
-    lv_obj_set_style_shadow_width(s_panel, 18, 0);
-    lv_obj_set_style_shadow_opa(s_panel, LV_OPA_30, 0);
+    lv_obj_set_size(s_panel, kDrawerWidth, lv_disp_get_ver_res(nullptr) - (kDrawerInset * 2));
+    lv_obj_set_pos(s_panel, -kDrawerWidth - 4, kDrawerInset);
+    lv_obj_set_style_bg_color(s_panel, theme::colors().panel, 0);
+    lv_obj_set_style_border_color(s_panel, theme::colors().blue, 0);
 
-    label(s_panel, "OEL NAVI", &lv_font_montserrat_24, amber_hot(), LV_ALIGN_TOP_LEFT, 8, 6);
-    label(s_panel, "PUXE DA BORDA", &lv_font_montserrat_12, theme::colors().muted, LV_ALIGN_TOP_RIGHT, -8, 14);
+    label(s_panel, "NAVEGACAO", &lv_font_montserrat_20, theme::colors().text,
+          LV_ALIGN_TOP_LEFT, 10, 10);
+    label(s_panel, "MENU LATERAL", &lv_font_montserrat_12, theme::colors().muted,
+          LV_ALIGN_TOP_LEFT, 12, 36);
 
-    static const char *map[] = {
-        LV_SYMBOL_HOME " HOME",
-        LV_SYMBOL_VIDEO " GIF",
-        "\n",
-        LV_SYMBOL_AUDIO " SPOT",
-        LV_SYMBOL_SETTINGS " CONFIG",
-        "\n",
-        "SCAN SD",
-        "FECHAR",
-        "",
-    };
-
-    lv_obj_t *matrix = lv_btnmatrix_create(s_panel);
-    lv_btnmatrix_set_map(matrix, map);
-    lv_btnmatrix_set_btn_ctrl_all(matrix, LV_BTNMATRIX_CTRL_CLICK_TRIG | LV_BTNMATRIX_CTRL_NO_REPEAT);
-    lv_obj_set_size(matrix, 314, 154);
-    lv_obj_align(matrix, LV_ALIGN_BOTTOM_MID, 0, -4);
-    lv_obj_clear_flag(matrix, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_event_cb(matrix, matrix_cb, LV_EVENT_VALUE_CHANGED, nullptr);
-
-    lv_obj_set_style_bg_color(matrix, lv_color_hex(0x120D05), 0);
-    lv_obj_set_style_bg_opa(matrix, LV_OPA_80, 0);
-    lv_obj_set_style_border_width(matrix, 0, 0);
-    lv_obj_set_style_pad_all(matrix, 6, 0);
-    lv_obj_set_style_pad_row(matrix, 7, 0);
-    lv_obj_set_style_pad_column(matrix, 7, 0);
-    lv_obj_set_style_bg_color(matrix, lv_color_hex(0x251805), LV_PART_ITEMS);
-    lv_obj_set_style_bg_opa(matrix, LV_OPA_90, LV_PART_ITEMS);
-    lv_obj_set_style_border_color(matrix, amber(), LV_PART_ITEMS);
-    lv_obj_set_style_border_width(matrix, 1, LV_PART_ITEMS);
-    lv_obj_set_style_radius(matrix, 0, LV_PART_ITEMS);
-    lv_obj_set_style_text_color(matrix, amber_hot(), LV_PART_ITEMS);
-    lv_obj_set_style_text_font(matrix, &lv_font_montserrat_16, LV_PART_ITEMS);
-    lv_obj_set_style_bg_color(matrix, amber_hot(), LV_PART_ITEMS | LV_STATE_PRESSED);
-    lv_obj_set_style_text_color(matrix, lv_color_hex(0x050505), LV_PART_ITEMS | LV_STATE_PRESSED);
+    nav_button(s_panel, LV_SYMBOL_HOME "  HOME", 62, 0);
+    nav_button(s_panel, LV_SYMBOL_VIDEO "  GIF", 104, 1);
+    nav_button(s_panel, LV_SYMBOL_AUDIO "  SPOTIFY", 146, 2);
+    nav_button(s_panel, LV_SYMBOL_SETTINGS "  CONFIG", 188, 3);
+    nav_button(s_panel, LV_SYMBOL_REFRESH "  SCAN SD", 230, 4);
+    nav_button(s_panel, LV_SYMBOL_CLOSE "  FECHAR", 272, 5);
 
     lv_obj_move_foreground(s_overlay);
 }

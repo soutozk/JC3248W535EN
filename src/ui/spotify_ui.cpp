@@ -236,9 +236,9 @@ static void update_fullscreen_layout(void)
         if (s_vu_layer != nullptr) lv_obj_add_flag(s_vu_layer, LV_OBJ_FLAG_HIDDEN);
         hide_stage_layer();
 
-        // Adjust cover art to standard mode (240x240, zoom 205, left aligned)
+        // The demo music layout keeps metadata and controls on the left.
         lv_obj_clear_flag(s_img_cover, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_align(s_img_cover, LV_ALIGN_LEFT_MID, 16, 20);
+        lv_obj_align(s_img_cover, LV_ALIGN_RIGHT_MID, -16, 20);
         lv_img_set_zoom(s_img_cover, 205);
         set_cover_chrome(true);
     }
@@ -425,11 +425,10 @@ void show(void)
     s_cover_dsc.data = spotify_ble_get_cover_data();
     create_stage_layer(s_screen);
 
-    // --- Left-side Cover Art ---
+    // --- Right-side Cover Art ---
     s_img_cover = lv_img_create(s_screen);
     lv_img_set_src(s_img_cover, &s_cover_dsc);
-    // Align to the left
-    lv_obj_align(s_img_cover, LV_ALIGN_LEFT_MID, 16, 20);
+    lv_obj_align(s_img_cover, LV_ALIGN_RIGHT_MID, -16, 20);
     lv_img_set_zoom(s_img_cover, 205); // Zoom to 240x240
     lv_obj_add_flag(s_img_cover, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(s_img_cover, cover_click_cb, LV_EVENT_CLICKED, nullptr);
@@ -438,10 +437,10 @@ void show(void)
     set_cover_chrome(true);
     create_vu_overlay(s_screen);
 
-    // --- Right-side Controls Panel ---
+    // --- Left-side Metadata and Controls ---
     s_info_panel = theme::create_panel(s_screen);
     lv_obj_set_size(s_info_panel, 192, 246);
-    lv_obj_align(s_info_panel, LV_ALIGN_BOTTOM_RIGHT, -12, -12);
+    lv_obj_align(s_info_panel, LV_ALIGN_BOTTOM_LEFT, 12, -12);
 
     // Song Title
     s_title_lbl = lv_label_create(s_info_panel);
@@ -515,6 +514,15 @@ void show(void)
     lv_obj_t *back_lbl = lv_label_create(btn_back);
     lv_label_set_text(back_lbl, LV_SYMBOL_HOME "  VOLTAR");
     lv_obj_center(back_lbl);
+
+    lv_obj_t *btn_mode = lv_btn_create(s_info_panel);
+    theme::apply_subtle_button(btn_mode);
+    lv_obj_set_size(btn_mode, 176, 32);
+    lv_obj_align(btn_mode, LV_ALIGN_BOTTOM_MID, 0, -60);
+    lv_obj_add_event_cb(btn_mode, cover_click_cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *mode_lbl = lv_label_create(btn_mode);
+    lv_label_set_text(mode_lbl, LV_SYMBOL_EYE_OPEN "  MODO DA CAPA");
+    lv_obj_center(mode_lbl);
 
     // Initialize layout positions
     update_fullscreen_layout();
