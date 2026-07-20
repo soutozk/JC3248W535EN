@@ -27,3 +27,9 @@ Para o fundo da Home, prefira uma imagem PNG de 480x320 em `backgrounds/home.png
 GIFs devem ficar em `gifs/`. A lista e atualizada pelo botao `SCAN SD`; tocar um `.gif` abre o player. Arquivos `.mjpeg` e `.mp4` aparecem como formatos ainda sem decoder no firmware atual.
 
 Mantenha GIFs leves, idealmente em 320x240 ou 480x320, e ejete o cartao antes de reiniciar a placa.
+
+As configuracoes tambem procuram imagens `.png` na raiz do
+SD, em `intro/` e em `backgrounds/`. Na tela CONFIGURACOES, toque em
+`PROXIMA FOTO` para escolher a imagem do boot ou da logo. A escolha, a cor da
+interface e o brilho ficam salvos na memoria NVS do ESP32 e retornam depois de
+desligar a placa; os arquivos selecionados precisam continuar no SD.

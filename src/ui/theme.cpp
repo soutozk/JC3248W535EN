@@ -1,22 +1,25 @@
 #include "theme.h"
 
+#include "preferences.h"
+
 #include <stdint.h>
 
 namespace ui {
 namespace theme {
 
 static bool s_ready = false;
-static PaletteId s_palette_id = PaletteId::Orange;
+static bool s_palette_loaded = false;
+static PaletteId s_palette_id = PaletteId::Blue;
 
 static Palette s_palette = {
-    lv_color_hex(0x060402),
-    lv_color_hex(0x16100A),
-    lv_color_hex(0x21150B),
-    lv_color_hex(0xFF9F1C),
-    lv_color_hex(0xFF5A1F),
-    lv_color_hex(0xFFD166),
-    lv_color_hex(0xFFF8EF),
-    lv_color_hex(0xB89A78),
+    lv_color_hex(0x020812),
+    lv_color_hex(0x071429),
+    lv_color_hex(0x0D2148),
+    lv_color_hex(0x24A8FF),
+    lv_color_hex(0x0757D9),
+    lv_color_hex(0x74D7FF),
+    lv_color_hex(0xF1FAFF),
+    lv_color_hex(0x7FA2C4),
 };
 
 static lv_style_t s_panel;
@@ -31,16 +34,11 @@ static lv_style_t s_muted;
 static Palette make_palette(PaletteId id)
 {
     switch(id) {
-        case PaletteId::Demo:
+        case PaletteId::Blue:
             return {
-                lv_color_hex(0xF2F4F7),
-                lv_color_hex(0xFFFFFF),
-                lv_color_hex(0xE7EDF2),
-                lv_color_hex(0x03A9C2),
-                lv_color_hex(0x2196F3),
-                lv_color_hex(0xF44336),
-                lv_color_hex(0x263238),
-                lv_color_hex(0x87909A),
+                lv_color_hex(0x020812), lv_color_hex(0x071429), lv_color_hex(0x0D2148),
+                lv_color_hex(0x24A8FF), lv_color_hex(0x0757D9), lv_color_hex(0x74D7FF),
+                lv_color_hex(0xF1FAFF), lv_color_hex(0x7FA2C4),
             };
         case PaletteId::Orange:
             return {
@@ -53,16 +51,11 @@ static Palette make_palette(PaletteId id)
                 lv_color_hex(0xFFF8EF),
                 lv_color_hex(0xB89A78),
             };
-        case PaletteId::Red:
+        case PaletteId::Yellow:
             return {
-                lv_color_hex(0x070203),
-                lv_color_hex(0x17090B),
-                lv_color_hex(0x220D10),
-                lv_color_hex(0xFF3B30),
-                lv_color_hex(0xB80F1D),
-                lv_color_hex(0xFF8A80),
-                lv_color_hex(0xFFF3F2),
-                lv_color_hex(0xB78282),
+                lv_color_hex(0x0A0800), lv_color_hex(0x211A04), lv_color_hex(0x382B06),
+                lv_color_hex(0xFFE04B), lv_color_hex(0xD4A900), lv_color_hex(0xFFF3A6),
+                lv_color_hex(0xFFFBE7), lv_color_hex(0xC2B36E),
             };
         case PaletteId::Green:
             return {
@@ -75,19 +68,24 @@ static Palette make_palette(PaletteId id)
                 lv_color_hex(0xF2FFF5),
                 lv_color_hex(0x7BA887),
             };
-        case PaletteId::Cyber:
         default:
             return {
-                lv_color_hex(0x050505),
-                lv_color_hex(0x111111),
-                lv_color_hex(0x17171C),
-                lv_color_hex(0x00E5FF),
-                lv_color_hex(0x006CFF),
-                lv_color_hex(0x9B31FF),
-                lv_color_hex(0xFFFFFF),
-                lv_color_hex(0x7A8A90),
+                lv_color_hex(0x020812), lv_color_hex(0x071429), lv_color_hex(0x0D2148),
+                lv_color_hex(0x24A8FF), lv_color_hex(0x0757D9), lv_color_hex(0x74D7FF),
+                lv_color_hex(0xF1FAFF), lv_color_hex(0x7FA2C4),
             };
     }
+}
+
+static void load_persisted_palette()
+{
+    int index = preferences::palette_index();
+    if(index < 0 || index > 3) {
+        index = 0;
+    }
+    s_palette_id = static_cast<PaletteId>(index);
+    s_palette = make_palette(s_palette_id);
+    s_palette_loaded = true;
 }
 
 static void reset_styles()
@@ -119,17 +117,16 @@ PaletteId palette_id()
 const char *palette_name()
 {
     switch(s_palette_id) {
-        case PaletteId::Demo:
-            return "DEMO";
+        case PaletteId::Blue:
+            return "AZUL";
+        case PaletteId::Yellow:
+            return "AMARELO";
         case PaletteId::Orange:
             return "LARANJA";
-        case PaletteId::Red:
-            return "VERMELHO";
         case PaletteId::Green:
             return "VERDE";
-        case PaletteId::Cyber:
         default:
-            return "CYBER";
+            return "AZUL";
     }
 }
 
@@ -140,29 +137,27 @@ void set_palette(PaletteId id)
     }
     s_palette_id = id;
     s_palette = make_palette(id);
+    preferences::set_palette_index(static_cast<int>(id));
     reset_styles();
     init();
 }
 
 PaletteId cycle_palette()
 {
-    PaletteId next = PaletteId::Demo;
+    PaletteId next = PaletteId::Blue;
     switch(s_palette_id) {
-        case PaletteId::Demo:
-            next = PaletteId::Cyber;
+        case PaletteId::Blue:
+            next = PaletteId::Yellow;
             break;
-        case PaletteId::Cyber:
+        case PaletteId::Yellow:
             next = PaletteId::Orange;
             break;
         case PaletteId::Orange:
-            next = PaletteId::Red;
-            break;
-        case PaletteId::Red:
             next = PaletteId::Green;
             break;
         case PaletteId::Green:
         default:
-            next = PaletteId::Demo;
+            next = PaletteId::Blue;
             break;
     }
     set_palette(next);
@@ -191,6 +186,9 @@ const lv_font_t *font_icon()
 
 void init()
 {
+    if(!s_palette_loaded) {
+        load_persisted_palette();
+    }
     if(s_ready) {
         return;
     }
@@ -340,7 +338,6 @@ static void make_line(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t w
 
 void add_scanlines(lv_obj_t *parent, lv_opa_t opa)
 {
-    if(s_palette_id == PaletteId::Demo) return;
     init();
     lv_coord_t h = lv_disp_get_ver_res(NULL);
     lv_coord_t w = lv_disp_get_hor_res(NULL);
@@ -351,7 +348,6 @@ void add_scanlines(lv_obj_t *parent, lv_opa_t opa)
 
 void add_frame_ticks(lv_obj_t *parent)
 {
-    if(s_palette_id == PaletteId::Demo) return;
     init();
     lv_coord_t w = lv_disp_get_hor_res(NULL);
     lv_coord_t h = lv_disp_get_ver_res(NULL);

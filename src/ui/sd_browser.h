@@ -31,10 +31,25 @@ struct MediaCatalog {
     bool directory_found;
 };
 
+constexpr size_t kMaxImageFiles = 32;
+
+struct ImageFile {
+    char name[kMaxNameLength];
+    char path[kMaxPathLength];
+    char lvgl_path[kMaxPathLength];
+};
+
+struct ImageCatalog {
+    ImageFile files[kMaxImageFiles];
+    size_t count;
+    bool sd_ready;
+};
+
 bool mount();
 bool is_mounted();
 bool file_exists(const char *path);
 void scan_media(MediaCatalog *catalog);
+void scan_images(ImageCatalog *catalog);
 const char *media_type_label(MediaType type);
 bool media_type_playable(MediaType type);
 

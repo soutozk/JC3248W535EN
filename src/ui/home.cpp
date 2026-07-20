@@ -9,12 +9,15 @@
 #include "theme.h"
 
 #include "lvgl.h"
+#include "esp_log.h"
 
 #include <stdint.h>
 #include <stdio.h>
 
 namespace ui {
 namespace home {
+
+static const char *TAG = "ui_home";
 
 void show();
 
@@ -153,14 +156,20 @@ static void create_equalizer(lv_obj_t *parent)
 static void create_oel_logo(lv_obj_t *parent)
 {
     if(assets::home_logo_available()) {
+        const char *logo_path = assets::home_logo_lvgl_path();
+        ESP_LOGI(TAG, "loading home logo: %s", logo_path);
+        // The SD file may have been replaced while keeping the same name.
+        // Drop LVGL's decoded PNG cache so the new logo is loaded.
+        lv_img_cache_invalidate_src(logo_path);
         lv_obj_t *logo = lv_img_create(parent);
-        lv_img_set_src(logo, assets::home_logo_lvgl_path());
+        lv_img_set_src(logo, logo_path);
         lv_img_set_zoom(logo, 196);
         lv_obj_align(logo, LV_ALIGN_CENTER, 76, 0);
         lv_obj_clear_flag(logo, LV_OBJ_FLAG_CLICKABLE);
         return;
     }
 
+    ESP_LOGW(TAG, "home logo unavailable; using text logo");
     label(parent, "SOUTOZK", theme::font_title(), amber_hot(), LV_ALIGN_CENTER, 76, 0);
 }
 
@@ -217,7 +226,7 @@ static void create_background(lv_obj_t *screen)
 
     lv_obj_t *overlay = block(screen, lv_disp_get_hor_res(nullptr), lv_disp_get_ver_res(nullptr),
                               lv_color_hex(0x000000),
-                              theme::palette_id() == theme::PaletteId::Demo ? LV_OPA_20 : LV_OPA_60);
+                              theme::palette_id() == theme::PaletteId::Blue ? LV_OPA_30 : LV_OPA_60);
     lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
 }
 

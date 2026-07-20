@@ -17,10 +17,9 @@ struct Palette {
 };
 
 enum class PaletteId {
-    Demo = 0,
-    Cyber,
+    Blue = 0,
+    Yellow,
     Orange,
-    Red,
     Green,
 };
 

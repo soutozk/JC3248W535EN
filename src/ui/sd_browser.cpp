@@ -19,6 +19,7 @@ namespace sd_browser {
 static const char *TAG = "ui_sd";
 static const char *kMountPoint = "/sd";
 static const char *kMediaDir = "/sd/gifs";
+static const char *kImageDirs[] = {"/sd", "/sd/intro", "/sd/backgrounds"};
 
 static bool s_mounted = false;
 static sdmmc_card_t *s_card = nullptr;
@@ -61,6 +62,61 @@ static void make_lvgl_path(const char *posix_path, char *out, size_t out_len)
     } else {
         snprintf(out, out_len, "S:%s", posix_path);
     }
+}
+
+static bool image_extension(const char *name)
+{
+    return has_extension(name, ".png");
+}
+
+static void scan_image_dir(const char *directory, ImageCatalog *catalog)
+{
+    if(catalog->count >= kMaxImageFiles) {
+        return;
+    }
+
+    DIR *dir = opendir(directory);
+    if(dir == nullptr) {
+        return;
+    }
+
+    struct dirent *entry = nullptr;
+    while((entry = readdir(dir)) != nullptr && catalog->count < kMaxImageFiles) {
+        if(entry->d_name[0] == '.' || !image_extension(entry->d_name)) {
+            continue;
+        }
+
+        ImageFile *file = &catalog->files[catalog->count];
+        const char *relative_dir = directory + strlen(kMountPoint);
+        if(relative_dir[0] == '/') {
+            relative_dir++;
+        }
+
+        // Build the display name with explicit bounds so -Wformat-truncation
+        // remains enabled for the firmware build.
+        size_t name_offset = 0;
+        if(relative_dir[0] != '\0') {
+            size_t prefix_len = strlen(relative_dir);
+            if(prefix_len > sizeof(file->name) - 2) {
+                prefix_len = sizeof(file->name) - 2;
+            }
+            memcpy(file->name, relative_dir, prefix_len);
+            name_offset = prefix_len;
+            file->name[name_offset++] = '/';
+        }
+        size_t entry_len = strlen(entry->d_name);
+        size_t available = sizeof(file->name) - name_offset - 1;
+        if(entry_len > available) {
+            entry_len = available;
+        }
+        memcpy(file->name + name_offset, entry->d_name, entry_len);
+        file->name[name_offset + entry_len] = '\0';
+        snprintf(file->path, sizeof(file->path), "%s/%s", directory, entry->d_name);
+        make_lvgl_path(file->path, file->lvgl_path, sizeof(file->lvgl_path));
+        catalog->count++;
+    }
+
+    closedir(dir);
 }
 
 bool mount()
@@ -156,6 +212,23 @@ void scan_media(MediaCatalog *catalog)
 
     closedir(dir);
     ESP_LOGI(TAG, "Found %u media files", static_cast<unsigned>(catalog->count));
+}
+
+void scan_images(ImageCatalog *catalog)
+{
+    if(catalog == nullptr) {
+        return;
+    }
+
+    memset(catalog, 0, sizeof(ImageCatalog));
+    catalog->sd_ready = s_mounted;
+    if(!s_mounted) {
+        return;
+    }
+
+    for(const char *directory : kImageDirs) {
+        scan_image_dir(directory, catalog);
+    }
 }
 
 const char *media_type_label(MediaType type)

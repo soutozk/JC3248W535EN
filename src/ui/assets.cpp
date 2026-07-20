@@ -1,9 +1,37 @@
 #include "assets.h"
 
+#include "preferences.h"
 #include "sd_browser.h"
+
+#include "esp_log.h"
+#include <stdio.h>
 
 namespace ui {
 namespace assets {
+
+static const char *TAG = "ui_assets";
+
+static char s_lvgl_path[320] = {};
+
+static const char *selected_path(const char *candidate, const char *fallback)
+{
+    if(sd_browser::is_mounted() && candidate != nullptr && candidate[0] != '\0' &&
+       sd_browser::file_exists(candidate)) {
+        return candidate;
+    }
+    return fallback;
+}
+
+static const char *to_lvgl_path(const char *posix_path)
+{
+    if(posix_path != nullptr && posix_path[0] != '\0' && posix_path[0] == '/' &&
+       posix_path[1] == 's' && posix_path[2] == 'd' && posix_path[3] == '/') {
+        snprintf(s_lvgl_path, sizeof(s_lvgl_path), "S:%s", posix_path + 3);
+    } else {
+        snprintf(s_lvgl_path, sizeof(s_lvgl_path), "S:%s", posix_path == nullptr ? "" : posix_path);
+    }
+    return s_lvgl_path;
+}
 
 const char *project_name()
 {
@@ -12,12 +40,12 @@ const char *project_name()
 
 const char *logo_posix_path()
 {
-    return "/sd/logo.png";
+    return selected_path(preferences::logo_image_path(), "/sd/logo.png");
 }
 
 const char *logo_lvgl_path()
 {
-    return "S:/logo.png";
+    return to_lvgl_path(logo_posix_path());
 }
 
 bool logo_available()
@@ -37,23 +65,25 @@ const char *intro_gif_lvgl_path()
 
 bool intro_gif_available()
 {
+    // A boot image selected in CONFIGURACOES has priority over the default GIF.
+    if(sd_browser::is_mounted() && preferences::boot_image_path()[0] != '\0') {
+        return false;
+    }
     return sd_browser::is_mounted() && sd_browser::file_exists(intro_gif_posix_path());
 }
 
 const char *intro_image_posix_path()
 {
-    if(sd_browser::is_mounted() && sd_browser::file_exists("/sd/intro/boot.png")) {
-        return "/sd/intro/boot.png";
+    const char *selected = selected_path(preferences::boot_image_path(), nullptr);
+    if(selected != nullptr) {
+        return selected;
     }
-    return "/sd/intro/logo.png";
+    return selected_path("/sd/intro/boot.png", "/sd/intro/logo.png");
 }
 
 const char *intro_image_lvgl_path()
 {
-    if(sd_browser::is_mounted() && sd_browser::file_exists("/sd/intro/boot.png")) {
-        return "S:/intro/boot.png";
-    }
-    return "S:/intro/logo.png";
+    return to_lvgl_path(intro_image_posix_path());
 }
 
 bool intro_image_available()
@@ -63,18 +93,17 @@ bool intro_image_available()
 
 const char *home_logo_posix_path()
 {
-    if(sd_browser::is_mounted() && sd_browser::file_exists("/sd/intro/logo.png")) {
-        return "/sd/intro/logo.png";
+    const char *selected = selected_path(preferences::logo_image_path(), nullptr);
+    if(selected != nullptr) {
+        return selected;
     }
-    return "/sd/logo.png";
+    ESP_LOGW(TAG, "selected logo is unavailable: %s", preferences::logo_image_path());
+    return selected_path("/sd/intro/logo.png", "/sd/logo.png");
 }
 
 const char *home_logo_lvgl_path()
 {
-    if(sd_browser::is_mounted() && sd_browser::file_exists("/sd/intro/logo.png")) {
-        return "S:/intro/logo.png";
-    }
-    return "S:/logo.png";
+    return to_lvgl_path(home_logo_posix_path());
 }
 
 bool home_logo_available()
