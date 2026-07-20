@@ -2,6 +2,7 @@
 
 #include "assets.h"
 #include "gif_player.h"
+#include "home_icons.h"
 #include "navigation.h"
 #include "sd_browser.h"
 #include "settings.h"
@@ -81,7 +82,7 @@ static void route_cb(lv_event_t *event)
     }
 }
 
-static lv_obj_t *home_button(lv_obj_t *parent, const char *title, const char *subtitle,
+static lv_obj_t *home_button(lv_obj_t *parent, const lv_img_dsc_t *icon, const char *subtitle,
                              lv_align_t align, lv_coord_t x, lv_coord_t y, uintptr_t route)
 {
     lv_obj_t *btn = lv_btn_create(parent);
@@ -96,9 +97,11 @@ static lv_obj_t *home_button(lv_obj_t *parent, const char *title, const char *su
     lv_obj_set_style_shadow_width(btn, 8, 0);
     lv_obj_set_style_shadow_opa(btn, LV_OPA_20, 0);
 
-    lv_obj_t *title_label = label(btn, title, theme::font_icon(), amber_hot(), LV_ALIGN_CENTER, 0, -4);
-    lv_obj_set_width(title_label, 104);
-    lv_obj_set_style_text_align(title_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_t *icon_image = lv_img_create(btn);
+    lv_img_set_src(icon_image, icon);
+    lv_obj_set_size(icon_image, 64, 64);
+    lv_obj_align(icon_image, LV_ALIGN_CENTER, 0, -2);
+    lv_obj_clear_flag(icon_image, LV_OBJ_FLAG_CLICKABLE);
 
     if(subtitle != nullptr && subtitle[0] != '\0') {
         lv_obj_t *subtitle_label = label(btn, subtitle, theme::font_small(), theme::colors().muted,
@@ -255,9 +258,9 @@ void show()
     lv_obj_set_style_border_color(button_deck, amber(), 0);
     lv_obj_set_style_border_width(button_deck, 1, 0);
 
-    home_button(button_deck, LV_SYMBOL_VIDEO, "", LV_ALIGN_LEFT_MID, 10, 0, 1);
-    home_button(button_deck, LV_SYMBOL_AUDIO, "", LV_ALIGN_CENTER, 0, 0, 2);
-    home_button(button_deck, LV_SYMBOL_SETTINGS, "", LV_ALIGN_RIGHT_MID, -10, 0, 3);
+    home_button(button_deck, &home_icon_play, "", LV_ALIGN_LEFT_MID, 10, 0, 1);
+    home_button(button_deck, &home_icon_spotify, "", LV_ALIGN_CENTER, 0, 0, 2);
+    home_button(button_deck, &home_icon_settings, "", LV_ALIGN_RIGHT_MID, -10, 0, 3);
 
     create_status_strip(screen);
     navigation::attach(screen);
