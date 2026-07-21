@@ -4,6 +4,7 @@
 #include "gif_player.h"
 #include "home_icons.h"
 #include "navigation.h"
+#include "obd2.h"
 #include "sd_browser.h"
 #include "settings.h"
 #include "spotify_ui.h"
@@ -74,8 +75,7 @@ static void route_cb(lv_event_t *event)
             settings::show();
             break;
         case 4:
-            sd_browser::mount();
-            show();
+            obd2::show();
             break;
         default:
             break;
@@ -83,12 +83,11 @@ static void route_cb(lv_event_t *event)
 }
 
 static lv_obj_t *home_button(lv_obj_t *parent, const lv_img_dsc_t *icon, const char *subtitle,
-                             lv_align_t align, lv_coord_t x, lv_coord_t y, uintptr_t route)
+                             uintptr_t route)
 {
     lv_obj_t *btn = lv_btn_create(parent);
     theme::apply_button(btn, true);
-    lv_obj_set_size(btn, 132, 70);
-    lv_obj_align(btn, align, x, y);
+    lv_obj_set_size(btn, 74, 74);
     lv_obj_add_event_cb(btn, route_cb, LV_EVENT_CLICKED, reinterpret_cast<void *>(route));
 
     lv_obj_set_style_bg_color(btn, theme::colors().panel, 0);
@@ -99,7 +98,7 @@ static lv_obj_t *home_button(lv_obj_t *parent, const lv_img_dsc_t *icon, const c
 
     lv_obj_t *icon_image = lv_img_create(btn);
     lv_img_set_src(icon_image, icon);
-    lv_obj_set_size(icon_image, 64, 64);
+    lv_obj_set_size(icon_image, 54, 54);
     lv_obj_align(icon_image, LV_ALIGN_CENTER, 0, -2);
     lv_obj_clear_flag(icon_image, LV_OBJ_FLAG_CLICKABLE);
 
@@ -110,8 +109,6 @@ static lv_obj_t *home_button(lv_obj_t *parent, const lv_img_dsc_t *icon, const c
         lv_obj_set_style_text_align(subtitle_label, LV_TEXT_ALIGN_CENTER, 0);
     }
 
-    lv_obj_t *lamp = block(btn, 5, 42, amber(), LV_OPA_80);
-    lv_obj_align(lamp, LV_ALIGN_RIGHT_MID, -8, 0);
     return btn;
 }
 
@@ -253,14 +250,22 @@ void show()
 
     create_oel_display(screen);
 
-    lv_obj_t *button_deck = block(screen, lv_disp_get_hor_res(nullptr) - 24, 112, theme::colors().panel, LV_OPA_COVER);
+    lv_obj_t *button_deck = block(screen, lv_disp_get_hor_res(nullptr), 112, theme::colors().panel, LV_OPA_COVER);
     lv_obj_align(button_deck, LV_ALIGN_BOTTOM_MID, 0, -48);
     lv_obj_set_style_border_color(button_deck, amber(), 0);
     lv_obj_set_style_border_width(button_deck, 1, 0);
+    lv_obj_set_style_pad_left(button_deck, 4, 0);
+    lv_obj_set_style_pad_right(button_deck, 4, 0);
+    lv_obj_set_style_pad_column(button_deck, 4, 0);
+    lv_obj_set_flex_flow(button_deck, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(button_deck, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(button_deck, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(button_deck, LV_SCROLLBAR_MODE_OFF);
 
-    home_button(button_deck, &home_icon_play, "", LV_ALIGN_LEFT_MID, 10, 0, 1);
-    home_button(button_deck, &home_icon_spotify, "", LV_ALIGN_CENTER, 0, 0, 2);
-    home_button(button_deck, &home_icon_settings, "", LV_ALIGN_RIGHT_MID, -10, 0, 3);
+    home_button(button_deck, &home_icon_play, "", 1);
+    home_button(button_deck, &home_icon_spotify, "", 2);
+    home_button(button_deck, &home_icon_storage, "", 4);
+    home_button(button_deck, &home_icon_settings, "", 3);
 
     create_status_strip(screen);
     navigation::attach(screen);
