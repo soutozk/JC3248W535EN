@@ -3,6 +3,7 @@
 #include "navigation.h"
 #include "obd2.h"
 #include "obd2_data.h"
+#include "audio_beep.h"
 #include "theme.h"
 
 #include "lvgl.h"
@@ -148,6 +149,7 @@ static void update_alert_state(int rpm)
     s_alert_active = active;
     s_alert_phase = true;
     if(active) {
+        audio_beep_play_shift();
         lv_obj_set_style_bg_color(s_shift_overlay, lv_color_hex(0xE00000), 0);
         lv_obj_set_style_bg_opa(s_shift_overlay, LV_OPA_COVER, 0);
         lv_obj_set_style_opa(s_shift_label, LV_OPA_COVER, 0);
