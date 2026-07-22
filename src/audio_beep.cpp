@@ -20,6 +20,7 @@ constexpr gpio_num_t kI2sData = GPIO_NUM_41;
 constexpr uint32_t kSampleRate = 16000;
 constexpr size_t kFramesPerWrite = 256;
 constexpr float kPi = 3.14159265358979323846f;
+constexpr float kShiftBeepFrequency = 1300.0f;
 
 static i2s_chan_handle_t s_tx_channel = nullptr;
 static std::atomic_bool s_beep_running{false};
@@ -107,12 +108,13 @@ static void write_silence(uint32_t duration_ms)
 static void beep_task(void *)
 {
     if(init_i2s() == ESP_OK) {
-        // "bip, bip bip": one longer beep followed by two short beeps.
-        write_tone(1100.0f, 100);
-        vTaskDelay(pdMS_TO_TICKS(150));
-        write_tone(1100.0f, 75);
-        vTaskDelay(pdMS_TO_TICKS(80));
-        write_tone(1100.0f, 110);
+        // "bip, bip bip": tones a little longer, with shorter pauses so the
+        // warning is more noticeable without making the sequence sluggish.
+        write_tone(kShiftBeepFrequency, 150);
+        vTaskDelay(pdMS_TO_TICKS(95));
+        write_tone(kShiftBeepFrequency, 110);
+        vTaskDelay(pdMS_TO_TICKS(45));
+        write_tone(kShiftBeepFrequency, 150);
         write_silence(30);
     } else {
         ESP_LOGE(TAG, "Nao foi possivel inicializar o I2S do alto-falante");

@@ -15,6 +15,7 @@ namespace obd2_rpm {
 
 static constexpr int kMaxRpm = 9000;
 static constexpr int kAlertRpm = 7500;
+static constexpr uint32_t kShiftFlashPeriodMs = 160;
 static constexpr size_t kSegmentCount = 36;
 static constexpr size_t kLedCount = 16;
 
@@ -349,7 +350,7 @@ void show()
 
     update_visuals(0);
     s_update_timer = lv_timer_create(update_timer_cb, 40, nullptr);
-    s_alert_timer = lv_timer_create(alert_timer_cb, 110, nullptr);
+    s_alert_timer = lv_timer_create(alert_timer_cb, kShiftFlashPeriodMs, nullptr);
 
     navigation::attach(screen);
     lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_FADE_IN, 180, 0, true);
