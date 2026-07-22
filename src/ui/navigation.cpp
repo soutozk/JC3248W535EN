@@ -2,6 +2,7 @@
 
 #include "gif_player.h"
 #include "home.h"
+#include "media_menu.h"
 #include "sd_browser.h"
 #include "settings.h"
 #include "spotify_ui.h"
@@ -102,7 +103,7 @@ static void route(uint16_t id)
             home::show();
             break;
         case 1:
-            gif_player::show_list();
+            media_menu::show();
             break;
         case 2:
             ui_spotify_show();
@@ -273,7 +274,7 @@ void attach(lv_obj_t *screen)
           LV_ALIGN_TOP_LEFT, 12, 36);
 
     nav_button(s_panel, "HOME", 62, 0);
-    nav_button(s_panel, "GIF", 104, 1);
+    nav_button(s_panel, "MIDIA", 104, 1);
     nav_button(s_panel, "SPOTIFY", 146, 2);
     nav_button(s_panel, "CONFIG", 188, 3);
     nav_button(s_panel, "SCAN SD", 230, 4);

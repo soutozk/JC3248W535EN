@@ -45,13 +45,37 @@ struct ImageCatalog {
     bool sd_ready;
 };
 
+constexpr size_t kMaxAudioFiles = 64;
+
+enum class AudioType {
+    Wav,
+    Mp3,
+    Unknown,
+};
+
+struct AudioFile {
+    char name[kMaxNameLength];
+    char path[kMaxPathLength];
+    AudioType type;
+};
+
+struct AudioCatalog {
+    AudioFile files[kMaxAudioFiles];
+    size_t count;
+    bool sd_ready;
+    bool directory_found;
+};
+
 bool mount();
 bool is_mounted();
 bool file_exists(const char *path);
 void scan_media(MediaCatalog *catalog);
 void scan_images(ImageCatalog *catalog);
+void scan_audio(AudioCatalog *catalog);
 const char *media_type_label(MediaType type);
 bool media_type_playable(MediaType type);
+const char *audio_type_label(AudioType type);
+bool audio_type_playable(AudioType type);
 
 } // namespace sd_browser
 } // namespace ui

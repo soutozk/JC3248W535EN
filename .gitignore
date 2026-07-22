@@ -11,3 +11,4 @@
 /android-spotify-bridge/build/
 /android-spotify-bridge/app/build/
 /android-spotify-bridge/local.properties
+generated/

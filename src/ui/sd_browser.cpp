@@ -19,6 +19,7 @@ namespace sd_browser {
 static const char *TAG = "ui_sd";
 static const char *kMountPoint = "/sd";
 static const char *kMediaDir = "/sd/gifs";
+static const char *kAudioDir = "/sd/music";
 static const char *kImageDirs[] = {"/sd", "/sd/intro", "/sd/backgrounds"};
 
 static bool s_mounted = false;
@@ -53,6 +54,17 @@ static MediaType detect_type(const char *name)
         return MediaType::Mp4;
     }
     return MediaType::Unknown;
+}
+
+static AudioType detect_audio_type(const char *name)
+{
+    if(has_extension(name, ".wav")) {
+        return AudioType::Wav;
+    }
+    if(has_extension(name, ".mp3")) {
+        return AudioType::Mp3;
+    }
+    return AudioType::Unknown;
 }
 
 static void make_lvgl_path(const char *posix_path, char *out, size_t out_len)
@@ -231,6 +243,45 @@ void scan_images(ImageCatalog *catalog)
     }
 }
 
+void scan_audio(AudioCatalog *catalog)
+{
+    if(catalog == nullptr) {
+        return;
+    }
+
+    memset(catalog, 0, sizeof(AudioCatalog));
+    catalog->sd_ready = s_mounted;
+    if(!s_mounted) {
+        return;
+    }
+
+    DIR *dir = opendir(kAudioDir);
+    if(dir == nullptr) {
+        ESP_LOGW(TAG, "Audio directory not found: %s", kAudioDir);
+        return;
+    }
+    catalog->directory_found = true;
+
+    struct dirent *entry = nullptr;
+    while((entry = readdir(dir)) != nullptr && catalog->count < kMaxAudioFiles) {
+        if(entry->d_name[0] == '.') {
+            continue;
+        }
+        AudioType type = detect_audio_type(entry->d_name);
+        if(type == AudioType::Unknown) {
+            continue;
+        }
+
+        AudioFile *file = &catalog->files[catalog->count];
+        snprintf(file->name, sizeof(file->name), "%s", entry->d_name);
+        snprintf(file->path, sizeof(file->path), "%s/%s", kAudioDir, entry->d_name);
+        file->type = type;
+        catalog->count++;
+    }
+    closedir(dir);
+    ESP_LOGI(TAG, "Found %u audio files", static_cast<unsigned>(catalog->count));
+}
+
 const char *media_type_label(MediaType type)
 {
     switch(type) {
@@ -248,6 +299,23 @@ const char *media_type_label(MediaType type)
 bool media_type_playable(MediaType type)
 {
     return type == MediaType::Gif;
+}
+
+const char *audio_type_label(AudioType type)
+{
+    switch(type) {
+    case AudioType::Wav:
+        return "WAV";
+    case AudioType::Mp3:
+        return "MP3";
+    default:
+        return "FILE";
+    }
+}
+
+bool audio_type_playable(AudioType type)
+{
+    return type == AudioType::Wav || type == AudioType::Mp3;
 }
 
 } // namespace sd_browser

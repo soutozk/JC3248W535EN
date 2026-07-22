@@ -26,6 +26,8 @@ Para o fundo da Home, prefira uma imagem PNG de 480x320 em `backgrounds/home.png
 
 GIFs devem ficar em `gifs/`. A lista e atualizada pelo botao `SCAN SD`; tocar um `.gif` abre o player. Arquivos `.mjpeg` e `.mp4` aparecem como formatos ainda sem decoder no firmware atual.
 
+Na tela MIDIA, escolha AUDIO para listar arquivos de `music/`. O player reproduz MP3 e WAV PCM assinado de 16 bits, mono ou estereo, de 8 a 48 kHz, pelo alto-falante I2S da placa.
+
 Mantenha GIFs leves, idealmente em 320x240 ou 480x320, e ejete o cartao antes de reiniciar a placa.
 
 As configuracoes tambem procuram imagens `.png` na raiz do

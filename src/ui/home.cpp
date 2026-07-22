@@ -3,6 +3,7 @@
 #include "assets.h"
 #include "gif_player.h"
 #include "home_icons.h"
+#include "media_menu.h"
 #include "navigation.h"
 #include "obd2.h"
 #include "sd_browser.h"
@@ -66,7 +67,7 @@ static void route_cb(lv_event_t *event)
     uintptr_t route = reinterpret_cast<uintptr_t>(lv_event_get_user_data(event));
     switch(route) {
         case 1:
-            gif_player::show_list();
+            media_menu::show();
             break;
         case 2:
             ui_spotify_show();
