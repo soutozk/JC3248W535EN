@@ -1,5 +1,6 @@
 
 /.pio
+**/.pio/
 /build
 *.zip
 .vscode/c_cpp_properties.json

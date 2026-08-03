@@ -1,6 +1,23 @@
-# CyberDeck Spotify Bridge
+# CyberDeck Bridge
 
-App Android para enviar a musica atual do Spotify para a ESP32 via BLE.
+App Android para enviar a musica atual do Spotify e telemetria OBD-II para a ESP32 via BLE.
+
+## OBD-II com ELM327
+
+O celular funciona como ponte entre dois enlaces: conecta ao ELM327 por Bluetooth classico
+(RFCOMM/SPP), consulta a ECU e transmite quadros binarios para o `CyberDeck_OBD` por BLE.
+
+1. Grave o projeto `firmware-obd` na placa.
+2. Nas configuracoes Bluetooth do Android, pareie previamente o ELM327.
+3. Abra o app, conceda as permissoes Bluetooth e toque em `SCAN / CONECTAR` para conectar ao
+   `CyberDeck_OBD`.
+4. Selecione o adaptador na lista de dispositivos pareados e toque em `CONECTAR ELM327`.
+5. Use `ATUALIZAR LOG OBD` para consultar os ultimos eventos de conexao e polling.
+
+O app inicializa o ELM327, detecta o protocolo automaticamente, descobre os PIDs suportados,
+faz polling adaptativo e reconecta com backoff quando o transporte cai. RPM, velocidade,
+temperatura, carga, acelerador, tensao, combustivel, ar de admissao, MAP, MAF e tempo de motor
+sao enviados quando suportados pela ECU.
 
 ## Como testar
 
@@ -33,3 +50,8 @@ Para a capa, o app tenta primeiro a notificacao e depois a MediaSession (`ALBUM_
 ## Teste manual
 
 O botao `ENVIAR MANUAL` continua disponivel para diagnostico. Ele envia apenas `Titulo;Artista` para confirmar que a conexao BLE esta viva.
+
+## Testes locais
+
+Execute `gradlew.bat test` no Windows. Os testes cobrem respostas ELM327, conversao de PIDs,
+layout dos quadros BLE e CRC-16/CCITT.

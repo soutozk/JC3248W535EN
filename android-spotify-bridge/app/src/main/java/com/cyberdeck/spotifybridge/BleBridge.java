@@ -1,6 +1,7 @@
 package com.cyberdeck.spotifybridge;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -39,6 +40,7 @@ public class BleBridge {
     }
 
     private static final String DEVICE_NAME = "CyberDeck_Spotify";
+    private static final String OBD_DEVICE_NAME = "CyberDeck_OBD";
     private static final int COVER_SIZE = 300;
     private static final int COVER_CHUNK_SIZE = 120;
 
@@ -52,6 +54,10 @@ public class BleBridge {
             UUID.fromString("f38a0004-82eb-4a73-a38c-ce98c9438012");
     private static final UUID COVER_DATA_UUID =
             UUID.fromString("f38a0005-82eb-4a73-a38c-ce98c9438012");
+    private static final UUID OBD_TELEMETRY_UUID =
+            UUID.fromString("f38a0006-82eb-4a73-a38c-ce98c9438012");
+    private static final UUID OBD_STATUS_UUID =
+            UUID.fromString("f38a0007-82eb-4a73-a38c-ce98c9438012");
     private static final UUID CLIENT_CONFIG_UUID =
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
@@ -60,14 +66,17 @@ public class BleBridge {
     private final Context context;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ArrayDeque<WriteOp> writeQueue = new ArrayDeque<>();
+    private final Object writeQueueLock = new Object();
 
     private Listener listener;
     private BluetoothLeScanner scanner;
-    private BluetoothGatt gatt;
-    private BluetoothGattCharacteristic trackCharacteristic;
-    private BluetoothGattCharacteristic controlCharacteristic;
-    private BluetoothGattCharacteristic coverSizeCharacteristic;
-    private BluetoothGattCharacteristic coverDataCharacteristic;
+    private volatile BluetoothGatt gatt;
+    private volatile BluetoothGattCharacteristic trackCharacteristic;
+    private volatile BluetoothGattCharacteristic controlCharacteristic;
+    private volatile BluetoothGattCharacteristic coverSizeCharacteristic;
+    private volatile BluetoothGattCharacteristic coverDataCharacteristic;
+    private volatile BluetoothGattCharacteristic obdTelemetryCharacteristic;
+    private volatile BluetoothGattCharacteristic obdStatusCharacteristic;
 
     private boolean scanning;
     private boolean writeInProgress;
@@ -97,6 +106,26 @@ public class BleBridge {
         return gatt != null && trackCharacteristic != null;
     }
 
+    public boolean isObdReady() {
+        return gatt != null && obdTelemetryCharacteristic != null && obdStatusCharacteristic != null;
+    }
+
+    public void sendObdTelemetry(byte[] frame) {
+        sendObdFrame(obdTelemetryCharacteristic, frame);
+    }
+
+    public void sendObdStatus(byte[] frame) {
+        sendObdFrame(obdStatusCharacteristic, frame);
+    }
+
+    private void sendObdFrame(BluetoothGattCharacteristic characteristic, byte[] frame) {
+        if (characteristic == null || frame == null || frame.length == 0) return;
+        enqueueWrite(characteristic, frame,
+                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE, false);
+        processNextWrite();
+    }
+
+    @SuppressLint("MissingPermission") // guarded by hasScanPermission()
     public void startScan() {
         if (!hasScanPermission()) {
             setStatus("Permissao Bluetooth necessaria");
@@ -112,18 +141,19 @@ public class BleBridge {
         }
 
         close();
-        setStatus("Procurando CyberDeck_Spotify...");
+        setStatus("Procurando CyberDeck...");
         scanning = true;
         scanner.startScan(scanCallback);
 
         mainHandler.postDelayed(() -> {
             if (scanning) {
                 stopScan();
-                setStatus("Nao encontrou CyberDeck_Spotify");
+                setStatus("Nao encontrou CyberDeck");
             }
         }, 12000);
     }
 
+    @SuppressLint("MissingPermission") // guarded by hasScanPermission()
     public void stopScan() {
         if (scanner != null && scanning && hasScanPermission()) {
             scanner.stopScan(scanCallback);
@@ -131,10 +161,14 @@ public class BleBridge {
         scanning = false;
     }
 
+    @SuppressLint("MissingPermission") // guarded by hasConnectPermission()
     public void close() {
         stopScan();
-        writeQueue.clear();
+        synchronized (writeQueueLock) {
+            writeQueue.clear();
+        }
         writeInProgress = false;
+        currentWriteOp = null;
         if (gatt != null && hasConnectPermission()) {
             gatt.close();
         }
@@ -143,6 +177,8 @@ public class BleBridge {
         controlCharacteristic = null;
         coverSizeCharacteristic = null;
         coverDataCharacteristic = null;
+        obdTelemetryCharacteristic = null;
+        obdStatusCharacteristic = null;
         notifyConnection(false);
     }
 
@@ -178,7 +214,9 @@ public class BleBridge {
         }
 
         if (!force) {
-            writeQueue.clear();
+            synchronized (writeQueueLock) {
+                writeQueue.clear();
+            }
         }
 
         activeTransferId++;
@@ -222,16 +260,22 @@ public class BleBridge {
         }
         byte[] copy = new byte[data.length];
         System.arraycopy(data, 0, copy, 0, data.length);
-        writeQueue.add(new WriteOp(characteristic, copy, writeType, waitForCallback, activeTransferId));
+        synchronized (writeQueueLock) {
+            writeQueue.add(new WriteOp(characteristic, copy, writeType, waitForCallback, activeTransferId));
+        }
     }
 
     private void processNextWrite() {
         mainHandler.post(() -> {
-            if (writeInProgress || gatt == null || writeQueue.isEmpty() || !hasConnectPermission()) {
+            if (writeInProgress || gatt == null || !hasConnectPermission()) {
                 return;
             }
 
-            WriteOp op = writeQueue.poll();
+            WriteOp op;
+            synchronized (writeQueueLock) {
+                op = writeQueue.poll();
+            }
+            if (op == null) return;
             currentWriteOp = op;
             writeInProgress = true;
             boolean started = writeCharacteristic(op);
@@ -245,6 +289,7 @@ public class BleBridge {
 
             if (!op.waitForCallback) {
                 mainHandler.postDelayed(() -> {
+                    if (currentWriteOp != op) return;
                     currentWriteOp = null;
                     writeInProgress = false;
                     processNextWrite();
@@ -253,6 +298,7 @@ public class BleBridge {
         });
     }
 
+    @SuppressLint("MissingPermission") // caller verifies hasConnectPermission()
     private boolean writeCharacteristic(WriteOp op) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             int result = gatt.writeCharacteristic(op.characteristic, op.data, op.writeType);
@@ -286,6 +332,7 @@ public class BleBridge {
         return stream.toByteArray();
     }
 
+    @SuppressLint("MissingPermission") // guarded by hasConnectPermission()
     private void enableControlNotifications() {
         if (gatt == null || controlCharacteristic == null || !hasConnectPermission()) {
             return;
@@ -298,6 +345,7 @@ public class BleBridge {
         enqueueWriteDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
     }
 
+    @SuppressLint("MissingPermission") // called only from the guarded notification setup
     private void enqueueWriteDescriptor(BluetoothGattDescriptor descriptor, byte[] value) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             gatt.writeDescriptor(descriptor, value);
@@ -307,6 +355,7 @@ public class BleBridge {
         }
     }
 
+    @SuppressLint("MissingPermission") // callbacks recheck BLUETOOTH_CONNECT before device access
     private final ScanCallback scanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
@@ -319,7 +368,7 @@ public class BleBridge {
                 name = result.getScanRecord().getDeviceName();
             }
 
-            if (DEVICE_NAME.equals(name)) {
+            if (DEVICE_NAME.equals(name) || OBD_DEVICE_NAME.equals(name)) {
                 setStatus("Encontrado. Conectando...");
                 stopScan();
                 connect(device);
@@ -333,6 +382,7 @@ public class BleBridge {
         }
     };
 
+    @SuppressLint("MissingPermission") // guarded by hasConnectPermission()
     private void connect(BluetoothDevice device) {
         if (!hasConnectPermission()) {
             setStatus("Permissao de conexao Bluetooth necessaria");
@@ -341,6 +391,7 @@ public class BleBridge {
         gatt = device.connectGatt(context, false, gattCallback);
     }
 
+    @SuppressLint("MissingPermission") // each operation is guarded by hasConnectPermission()
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -375,7 +426,7 @@ public class BleBridge {
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             BluetoothGattService service = gatt.getService(SERVICE_UUID);
             if (service == null) {
-                setStatus("Servico Spotify nao encontrado");
+                setStatus("Servico CyberDeck nao encontrado");
                 return;
             }
 
@@ -383,32 +434,47 @@ public class BleBridge {
             controlCharacteristic = service.getCharacteristic(CONTROL_UUID);
             coverSizeCharacteristic = service.getCharacteristic(COVER_SIZE_UUID);
             coverDataCharacteristic = service.getCharacteristic(COVER_DATA_UUID);
+            obdTelemetryCharacteristic = service.getCharacteristic(OBD_TELEMETRY_UUID);
+            obdStatusCharacteristic = service.getCharacteristic(OBD_STATUS_UUID);
 
-            if (trackCharacteristic == null) {
-                setStatus("Caracteristica de musica nao encontrada");
+            if (trackCharacteristic == null && obdTelemetryCharacteristic == null) {
+                setStatus("Caracteristicas da ponte nao encontradas");
                 return;
             }
 
-            enableControlNotifications();
-            setStatus("Pronto. Abra o Spotify e toque uma musica.");
+            if (controlCharacteristic != null) enableControlNotifications();
+            setStatus(isObdReady() ? "Ponte BLE OBD pronta" : "Ponte BLE Spotify pronta");
             notifyConnection(true);
-            mainHandler.postDelayed(() -> SpotifyNotificationListener.pushActiveSpotify(context), 500);
+            if (trackCharacteristic != null)
+                mainHandler.postDelayed(() -> SpotifyNotificationListener.pushActiveSpotify(context), 500);
         }
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt,
                                           BluetoothGattCharacteristic characteristic,
                                           int status) {
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                setStatus("Falha ao enviar BLE: " + status);
-            }
-            updateCoverProgress(currentWriteOp);
-            currentWriteOp = null;
-            writeInProgress = false;
-            processNextWrite();
-            if (writeQueue.isEmpty() && status == BluetoothGatt.GATT_SUCCESS) {
-                setStatus("Envio concluido");
-            }
+            mainHandler.post(() -> {
+                WriteOp op = currentWriteOp;
+                // Escritas sem resposta sao avancadas pelo temporizador. Alguns aparelhos
+                // ainda emitem callback para elas; usa-lo aqui poderia liberar a proxima
+                // escrita duas vezes e corromper a fila.
+                if (op == null || !op.waitForCallback ||
+                        !characteristic.getUuid().equals(op.characteristic.getUuid())) return;
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    setStatus("Falha ao enviar BLE: " + status);
+                }
+                updateCoverProgress(op);
+                currentWriteOp = null;
+                writeInProgress = false;
+                processNextWrite();
+                boolean empty;
+                synchronized (writeQueueLock) {
+                    empty = writeQueue.isEmpty();
+                }
+                if (empty && status == BluetoothGatt.GATT_SUCCESS) {
+                    setStatus("Envio concluido");
+                }
+            });
         }
 
         @Override

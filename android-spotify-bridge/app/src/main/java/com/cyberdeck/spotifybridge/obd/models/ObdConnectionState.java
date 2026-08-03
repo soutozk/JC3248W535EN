@@ -1,0 +1,6 @@
+package com.cyberdeck.spotifybridge.obd.models;
+
+public enum ObdConnectionState {
+    DISCONNECTED, CONNECTING_ELM, INITIALIZING_ELM, DETECTING_PROTOCOL,
+    CHECKING_SUPPORTED_PIDS, CONNECTING_ESP32, READY, DEGRADED, RECONNECTING, ERROR
+}
