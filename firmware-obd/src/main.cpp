@@ -18,12 +18,10 @@ namespace {
 static const char *TAG = "FIRMWARE_OBD";
 constexpr int kRotationDegrees = 90;
 
-#if OBD_SIMULATION
-void simulationTimer(lv_timer_t *)
+void presentationTimer(lv_timer_t *)
 {
     obd::telemetrySimulate(static_cast<uint32_t>(esp_timer_get_time() / 1000));
 }
-#endif
 }
 
 extern "C" void app_main()
@@ -55,10 +53,8 @@ extern "C" void app_main()
 
     bsp_display_lock(0);
     obd::screens::showMenu();
-#if OBD_SIMULATION
-    lv_timer_create(simulationTimer, 50, nullptr);
-#endif
+    lv_timer_create(presentationTimer, 50, nullptr);
     bsp_display_unlock();
-    ESP_LOGI(TAG, "Firmware OBD pronto; simulacao=%d", OBD_SIMULATION);
+    ESP_LOGI(TAG, "Firmware OBD pronto; apresentacao automatica ativa; simulacao forcada=%d",
+             OBD_SIMULATION);
 }
-

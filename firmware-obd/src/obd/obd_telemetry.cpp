@@ -12,10 +12,33 @@ static SemaphoreHandle_t s_mutex = nullptr;
 static ObdTelemetry s_data;
 static ConnectionStatus s_status;
 static uint32_t s_statusSequence = 0;
+static bool s_bleConnected = false;
 
 static bool newer(uint32_t incoming, uint32_t current)
 {
     return current == 0 || static_cast<int32_t>(incoming - current) > 0;
+}
+
+static void applyTelemetry(const protocol::TelemetryFrame &f, uint32_t now)
+{
+    s_data.sequence = f.sequence;
+    s_data.receivedAtMs = now;
+    s_data.validMask = f.validMask & f.supportedMask;
+    s_data.supportedMask = f.supportedMask;
+    s_data.rpm = f.rpm;
+    s_data.speedKmh = f.speedKmh;
+    s_data.coolantC = f.coolantDeciC / 10.0f;
+    s_data.throttlePercent = f.throttleCentiPercent / 100.0f;
+    s_data.engineLoadPercent = f.loadCentiPercent / 100.0f;
+    s_data.controlModuleVoltage = f.voltageMilliVolt / 1000.0f;
+    s_data.fuelLevelPercent = f.fuelCentiPercent / 100.0f;
+    s_data.intakeAirC = f.intakeDeciC / 10.0f;
+    s_data.mapKpa = f.mapDeciKpa / 10.0f;
+    s_data.mafGps = f.mafCentiGps / 100.0f;
+    s_data.engineRuntimeSeconds = f.runtimeSeconds;
+    for(int i = 0; i < 11; ++i) {
+        if(s_data.validMask & (1u << i)) s_data.fieldReceivedAtMs[i] = now;
+    }
 }
 
 void telemetryInit()
@@ -36,22 +59,7 @@ bool acceptTelemetryFrame(const protocol::TelemetryFrame &f, uint32_t now)
         xSemaphoreGive(s_mutex);
         return false;
     }
-    s_data.sequence = f.sequence;
-    s_data.receivedAtMs = now;
-    s_data.validMask = f.validMask & f.supportedMask;
-    s_data.supportedMask = f.supportedMask;
-    s_data.rpm = f.rpm;
-    s_data.speedKmh = f.speedKmh;
-    s_data.coolantC = f.coolantDeciC / 10.0f;
-    s_data.throttlePercent = f.throttleCentiPercent / 100.0f;
-    s_data.engineLoadPercent = f.loadCentiPercent / 100.0f;
-    s_data.controlModuleVoltage = f.voltageMilliVolt / 1000.0f;
-    s_data.fuelLevelPercent = f.fuelCentiPercent / 100.0f;
-    s_data.intakeAirC = f.intakeDeciC / 10.0f;
-    s_data.mapKpa = f.mapDeciKpa / 10.0f;
-    s_data.mafGps = f.mafCentiGps / 100.0f;
-    s_data.engineRuntimeSeconds = f.runtimeSeconds;
-    for(int i = 0; i < 11; ++i) if(s_data.validMask & (1u << i)) s_data.fieldReceivedAtMs[i] = now;
+    applyTelemetry(f, now);
     xSemaphoreGive(s_mutex);
     return true;
 }
@@ -69,7 +77,10 @@ bool acceptStatusFrame(const protocol::StatusFrame &f, uint32_t now)
     s_status.state = static_cast<ConnectionState>(f.state);
     s_status.elmConnected = (f.flags & 1) != 0;
     s_status.ecuConnected = (f.flags & 2) != 0;
-    s_status.esp32Connected = (f.flags & 4) != 0;
+    // O enlace GAP e a fonte da verdade: se este quadro chegou, a sessao BLE
+    // ainda esta ativa. O bit recebido continua validado pelo app, mas nao pode
+    // ligar o modo de apresentacao durante uma conexao real.
+    s_status.esp32Connected = s_bleConnected;
     memcpy(s_status.protocol, f.protocol, 8);
     s_status.protocol[8] = '\0';
     s_status.latencyMs = f.latencyMs;
@@ -109,7 +120,9 @@ void telemetrySetBleConnected(bool connected)
 {
     telemetryInit();
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    s_bleConnected = connected;
     s_status.esp32Connected = connected;
+    s_data = {};
     if(connected) {
         // O contador do Android reinicia junto com o processo. Uma nova sessao BLE
         // precisa aceitar sua primeira sequencia mesmo que seja menor que a anterior.
@@ -123,7 +136,6 @@ void telemetrySetBleConnected(bool connected)
 
 void telemetrySimulate(uint32_t now)
 {
-#if OBD_SIMULATION
     protocol::TelemetryFrame f{};
     f.magic = protocol::kMagic; f.version = 1; f.type = 1; f.size = sizeof(f);
     f.sequence = now / 50 + 1; f.sourceTimestampMs = now;
@@ -139,10 +151,31 @@ void telemetrySimulate(uint32_t now)
     f.mapDeciKpa = static_cast<uint16_t>((30 + 70 * ramp) * 10);
     f.mafCentiGps = static_cast<uint16_t>((2 + 80 * ramp) * 100);
     f.runtimeSeconds = now / 1000;
-    if((now / 1000) % 17 == 14) f.validMask &= static_cast<uint16_t>(~Rpm);
-    acceptTelemetryFrame(f, now);
+
+    telemetryInit();
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+#if OBD_SIMULATION
+    const bool presentationActive = true;
 #else
-    (void) now;
+    const bool presentationActive = !s_bleConnected;
+#endif
+    // A verificacao e a escrita usam o mesmo mutex da notificacao GAP. Assim,
+    // uma amostra ficticia nunca entra depois que o app se conecta nem ocupa a
+    // sequencia que sera usada pelo primeiro quadro real.
+    if(presentationActive) applyTelemetry(f, now);
+    xSemaphoreGive(s_mutex);
+}
+
+bool telemetryPresentationActive()
+{
+#if OBD_SIMULATION
+    return true;
+#else
+    telemetryInit();
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    const bool active = !s_bleConnected;
+    xSemaphoreGive(s_mutex);
+    return active;
 #endif
 }
 

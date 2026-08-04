@@ -48,7 +48,7 @@ ObdTelemetry telemetrySnapshot(uint32_t nowMs);
 ConnectionStatus connectionSnapshot();
 void telemetrySetBleConnected(bool connected);
 void telemetrySimulate(uint32_t nowMs);
+bool telemetryPresentationActive();
 const char *connectionStateName(ConnectionState state);
 
 } // namespace obd
-

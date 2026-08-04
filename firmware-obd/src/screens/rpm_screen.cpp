@@ -21,6 +21,7 @@ static constexpr size_t kLedCount = 16;
 
 static lv_obj_t *s_screen = nullptr;
 static lv_obj_t *s_value = nullptr;
+static lv_obj_t *s_mode = nullptr;
 static lv_obj_t *s_shift_overlay = nullptr;
 static lv_obj_t *s_shift_label = nullptr;
 static lv_obj_t *s_segments[kSegmentCount] = {};
@@ -210,9 +211,10 @@ static void update_timer_cb(lv_timer_t *timer)
 {
     (void) timer;
     const uint32_t now = static_cast<uint32_t>(esp_timer_get_time() / 1000);
-    telemetrySimulate(now);
     const ObdTelemetry telemetry = telemetrySnapshot(now);
     update_visuals(static_cast<int>(telemetry.rpm), (telemetry.validMask & Rpm) != 0);
+    if(telemetryPresentationActive()) lv_obj_clear_flag(s_mode, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s_mode, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void alert_timer_cb(lv_timer_t *timer)
@@ -240,6 +242,7 @@ static void cleanup_cb(lv_event_t *event)
     }
     s_screen = nullptr;
     s_value = nullptr;
+    s_mode = nullptr;
     s_shift_overlay = nullptr;
     s_shift_label = nullptr;
     for(size_t i = 0; i < kSegmentCount; ++i) s_segments[i] = nullptr;
@@ -285,6 +288,8 @@ void showRpm()
 
     text(display, "RPM", theme::font_title(), amber(),
          LV_ALIGN_TOP_LEFT, 15, 10);
+    s_mode = text(display, "APRESENTACAO", theme::font_small(), amber_dim(),
+                  LV_ALIGN_TOP_MID, 0, 13);
     back_button(display, false);
 
     // Escala 0..9 distribuida sobre a mesma curva dos segmentos.

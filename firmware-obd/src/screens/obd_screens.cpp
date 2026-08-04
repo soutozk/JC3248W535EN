@@ -73,6 +73,25 @@ void addBack(lv_obj_t *screen)
 
 uint32_t nowMs() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 
+static lv_obj_t *s_menuStatus = nullptr;
+static lv_timer_t *s_menuTimer = nullptr;
+
+void menuTick(lv_timer_t *)
+{
+    const ConnectionStatus status = connectionSnapshot();
+    lv_label_set_text(s_menuStatus, telemetryPresentationActive()
+        ? "MODO APRESENTACAO" : connectionStateName(status.state));
+}
+
+void stopMenu(lv_event_t *event)
+{
+    if(lv_event_get_code(event) == LV_EVENT_DELETE && s_menuTimer != nullptr) {
+        lv_timer_del(s_menuTimer);
+        s_menuTimer = nullptr;
+        s_menuStatus = nullptr;
+    }
+}
+
 struct GaugeContext { lv_obj_t *value; lv_obj_t *unit; lv_obj_t *status; float shown; uint16_t field; };
 static GaugeContext s_gauge{};
 static lv_timer_t *s_gaugeTimer = nullptr;
@@ -117,6 +136,10 @@ void gaugeTick(lv_timer_t *)
             lv_obj_set_style_text_color(s_gauge.status, lv_color_hex(0xFF3218), 0);
         }
     }
+    if(telemetryPresentationActive()) {
+        lv_label_set_text(s_gauge.status, "MODO APRESENTACAO");
+        lv_obj_set_style_text_color(s_gauge.status, ui::theme::colors().cyan, 0);
+    }
 }
 
 struct DashboardContext { lv_obj_t *values[6]; lv_obj_t *footer; };
@@ -133,7 +156,8 @@ void dashTick(lv_timer_t *)
     char text[32];
     for(int i=0;i<6;++i){ if(t.validMask&masks[i]) snprintf(text,sizeof(text),formats[i],values[i]); else snprintf(text,sizeof(text),"--"); lv_label_set_text(s_dash.values[i],text); }
     const ConnectionStatus st=connectionSnapshot();
-    snprintf(text,sizeof(text),"%s | %u ms",connectionStateName(st.state),st.latencyMs);
+    if(telemetryPresentationActive()) snprintf(text,sizeof(text),"MODO APRESENTACAO");
+    else snprintf(text,sizeof(text),"%s | %u ms",connectionStateName(st.state),st.latencyMs);
     lv_label_set_text(s_dash.footer,text);
 }
 
@@ -153,8 +177,10 @@ void showMenu()
     struct Tile {const char *name; uintptr_t route; uint16_t mask;};
     const Tile tiles[]={{LV_SYMBOL_REFRESH "  RPM",1,Rpm},{LV_SYMBOL_CHARGE "  VELOCIDADE",2,Speed},{LV_SYMBOL_WARNING "  TEMPERATURA",3,Coolant},{LV_SYMBOL_LIST "  PAINEL GERAL",4,0},{LV_SYMBOL_SETTINGS "  CONFIGURACOES",5,0},{LV_SYMBOL_WIFI "  DIAGNOSTICO",6,0}};
     for(int i=0;i<6;++i){bool enabled=tiles[i].mask==0||unknown||(t.supportedMask&tiles[i].mask);lv_obj_t*b=button(screen,tiles[i].name,tiles[i].route,210,66,enabled);lv_obj_set_pos(b,18+(i%2)*234,58+(i/2)*78);}
-    const ConnectionStatus st=connectionSnapshot();
-    label(screen,connectionStateName(st.state),ui::theme::font_small(),ui::theme::colors().muted,LV_ALIGN_BOTTOM_MID,0,-10);
+    s_menuStatus=label(screen,"",ui::theme::font_small(),ui::theme::colors().muted,LV_ALIGN_BOTTOM_MID,0,-10);
+    lv_obj_add_event_cb(screen,stopMenu,LV_EVENT_DELETE,nullptr);
+    s_menuTimer=lv_timer_create(menuTick,250,nullptr);
+    menuTick(nullptr);
     load(screen);
 }
 
@@ -205,7 +231,7 @@ void showDiagnostics()
 {
     lv_obj_t *screen=newScreen("DIAGNOSTICO");addBack(screen);const ConnectionStatus s=connectionSnapshot();const ObdTelemetry t=telemetrySnapshot(nowMs());
     lv_obj_t*p=ui::theme::create_panel(screen);lv_obj_set_size(p,430,240);lv_obj_align(p,LV_ALIGN_CENTER,0,18);char b[384];
-    snprintf(b,sizeof(b),"Estado: %s\nELM conectado: %s\nECU respondendo: %s\nESP32 BLE: %s\nProtocolo: %s\nLatencia: %u ms\nTimeouts: %u\nUltimo erro: %u\nSequencia: %lu\nPIDs validos: 0x%03X\nPIDs suportados: 0x%03X",connectionStateName(s.state),s.elmConnected?"sim":"nao",s.ecuConnected?"sim":"nao",s.esp32Connected?"sim":"nao",s.protocol[0]?s.protocol:"N/D",s.latencyMs,s.timeouts,s.lastError,static_cast<unsigned long>(t.sequence),t.validMask,t.supportedMask);
+    snprintf(b,sizeof(b),"Estado: %s\nModo apresentacao: %s\nELM conectado: %s\nECU respondendo: %s\nESP32 BLE: %s\nProtocolo: %s\nLatencia: %u ms\nTimeouts: %u\nUltimo erro: %u\nSequencia: %lu\nPIDs validos: 0x%03X\nPIDs suportados: 0x%03X",connectionStateName(s.state),telemetryPresentationActive()?"sim":"nao",s.elmConnected?"sim":"nao",s.ecuConnected?"sim":"nao",s.esp32Connected?"sim":"nao",s.protocol[0]?s.protocol:"N/D",s.latencyMs,s.timeouts,s.lastError,static_cast<unsigned long>(t.sequence),t.validMask,t.supportedMask);
     lv_obj_t*l=label(p,b,ui::theme::font_small(),ui::theme::colors().text,LV_ALIGN_TOP_LEFT,6,6);lv_obj_set_style_text_line_space(l,5,0);load(screen);
 }
 

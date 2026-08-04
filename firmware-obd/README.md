@@ -14,10 +14,15 @@ pio run -d firmware-obd -t upload
 O ambiente usa ESP-IDF, LVGL 8.3.11, flash de 16 MB e PSRAM OPI de 8 MB. O limite de shift
 light e salvo em NVS.
 
-## Simulacao sem veiculo
+## Modo apresentacao
 
-Para exercitar as telas sem Android, ELM327 ou ECU, adicione temporariamente
-`-D OBD_SIMULATION=1` aos `build_flags` de `platformio.ini`. O valor normal e `0`.
+Quando o app Android nao esta conectado por BLE, o firmware entra automaticamente em modo
+apresentacao e alimenta as telas com valores demonstrativos. Ao conectar o celular, os dados
+ficticios sao descartados imediatamente e somente a telemetria recebida do app e exibida. Se
+a conexao cair, o modo apresentacao volta automaticamente.
+
+Para manter a apresentacao ativa mesmo com um cliente BLE conectado, altere temporariamente
+`-D OBD_SIMULATION=1` nos `build_flags` de `platformio.ini`. O valor normal e `0`.
 
 ## Transporte BLE
 
