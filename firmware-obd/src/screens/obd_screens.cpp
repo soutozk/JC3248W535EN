@@ -13,6 +13,9 @@ namespace obd {
 namespace screens {
 namespace {
 
+lv_color_t menuYellow() { return lv_color_hex(0xFFE04B); }
+lv_color_t menuYellowDim() { return lv_color_hex(0xD4A900); }
+
 lv_obj_t *label(lv_obj_t *parent, const char *value, const lv_font_t *font,
                 lv_color_t color, lv_align_t align, lv_coord_t x, lv_coord_t y)
 {
@@ -24,14 +27,22 @@ lv_obj_t *label(lv_obj_t *parent, const char *value, const lv_font_t *font,
     return obj;
 }
 
-lv_obj_t *newScreen(const char *title)
+lv_obj_t *newScreen(const char *title, bool yellowMenu = false)
 {
     ui::theme::init();
     lv_obj_t *screen = lv_obj_create(nullptr);
     ui::theme::apply_screen(screen);
-    ui::theme::add_frame_ticks(screen);
-    ui::theme::add_scanlines(screen, LV_OPA_10);
-    label(screen, title, ui::theme::font_title(), ui::theme::colors().text,
+    if(yellowMenu) {
+        lv_obj_set_style_bg_color(screen, lv_color_hex(0x0A0800), 0);
+        lv_obj_set_style_border_color(screen, menuYellowDim(), 0);
+        lv_obj_set_style_border_width(screen, 2, 0);
+        lv_obj_set_style_radius(screen, 12, 0);
+    } else {
+        ui::theme::add_frame_ticks(screen);
+        ui::theme::add_scanlines(screen, LV_OPA_10);
+    }
+    label(screen, title, ui::theme::font_title(),
+          yellowMenu ? menuYellow() : ui::theme::colors().text,
           LV_ALIGN_TOP_LEFT, 16, 14);
     return screen;
 }
@@ -63,6 +74,20 @@ lv_obj_t *button(lv_obj_t *parent, const char *text, uintptr_t route,
                               LV_ALIGN_CENTER, 0, 0);
     lv_obj_clear_flag(caption, LV_OBJ_FLAG_CLICKABLE);
     return obj;
+}
+
+void applyYellowMenuButton(lv_obj_t *button, bool enabled)
+{
+    lv_obj_set_style_bg_color(button, lv_color_hex(0x211A04), LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(button, lv_color_hex(0x382B06), LV_STATE_PRESSED);
+    lv_obj_set_style_border_color(button, enabled ? menuYellow() : menuYellowDim(), 0);
+    lv_obj_set_style_border_opa(button, enabled ? LV_OPA_COVER : LV_OPA_40, 0);
+    lv_obj_set_style_shadow_color(button, menuYellowDim(), 0);
+    lv_obj_set_style_shadow_opa(button, enabled ? LV_OPA_20 : LV_OPA_TRANSP, 0);
+    lv_obj_t *caption = lv_obj_get_child(button, 0);
+    if(caption != nullptr) {
+        lv_obj_set_style_text_color(caption, enabled ? menuYellow() : menuYellowDim(), 0);
+    }
 }
 
 void addBack(lv_obj_t *screen)
@@ -171,27 +196,17 @@ void shiftCb(lv_event_t *e){if(lv_event_get_code(e)!=LV_EVENT_CLICKED)return;int
 
 void showMenu()
 {
-    lv_obj_t *screen = newScreen("OBD-II / MENU");
+    lv_obj_t *screen = newScreen("OBD-II / MENU", true);
     const ObdTelemetry t = telemetrySnapshot(nowMs());
     const bool unknown = t.supportedMask == 0;
     struct Tile {const char *name; uintptr_t route; uint16_t mask;};
     const Tile tiles[]={{LV_SYMBOL_REFRESH "  RPM",1,Rpm},{LV_SYMBOL_CHARGE "  VELOCIDADE",2,Speed},{LV_SYMBOL_WARNING "  TEMPERATURA",3,Coolant},{LV_SYMBOL_LIST "  PAINEL GERAL",4,0},{LV_SYMBOL_SETTINGS "  CONFIGURACOES",5,0},{LV_SYMBOL_WIFI "  DIAGNOSTICO",6,0}};
-    for(int i=0;i<6;++i){bool enabled=tiles[i].mask==0||unknown||(t.supportedMask&tiles[i].mask);lv_obj_t*b=button(screen,tiles[i].name,tiles[i].route,210,66,enabled);lv_obj_set_pos(b,18+(i%2)*234,58+(i/2)*78);}
-    s_menuStatus=label(screen,"",ui::theme::font_small(),ui::theme::colors().muted,LV_ALIGN_BOTTOM_MID,0,-10);
+    for(int i=0;i<6;++i){bool enabled=tiles[i].mask==0||unknown||(t.supportedMask&tiles[i].mask);lv_obj_t*b=button(screen,tiles[i].name,tiles[i].route,210,66,enabled);applyYellowMenuButton(b,enabled);lv_obj_set_pos(b,18+(i%2)*234,58+(i/2)*78);}
+    s_menuStatus=label(screen,"",ui::theme::font_small(),menuYellowDim(),LV_ALIGN_BOTTOM_MID,0,-10);
     lv_obj_add_event_cb(screen,stopMenu,LV_EVENT_DELETE,nullptr);
     s_menuTimer=lv_timer_create(menuTick,250,nullptr);
     menuTick(nullptr);
     load(screen);
-}
-
-void showSpeed()
-{
-    lv_obj_t *screen=newScreen("VELOCIDADE"); addBack(screen);
-    lv_obj_t *panel=ui::theme::create_panel(screen);lv_obj_set_size(panel,430,220);lv_obj_align(panel,LV_ALIGN_CENTER,0,16);
-    s_gauge.value=label(panel,"--",&lv_font_montserrat_48,ui::theme::colors().cyan,LV_ALIGN_CENTER,-28,-20);
-    s_gauge.unit=label(panel,"km/h",ui::theme::font_body(),ui::theme::colors().text,LV_ALIGN_CENTER,92,2);
-    s_gauge.status=label(panel,"AGUARDANDO DADOS",ui::theme::font_small(),ui::theme::colors().muted,LV_ALIGN_BOTTOM_MID,0,-18);
-    s_gauge.field=Speed;s_gauge.shown=0;lv_obj_add_event_cb(screen,stopGauge,LV_EVENT_DELETE,nullptr);s_gaugeTimer=lv_timer_create(gaugeTick,40,nullptr);load(screen);
 }
 
 void showCoolant()
