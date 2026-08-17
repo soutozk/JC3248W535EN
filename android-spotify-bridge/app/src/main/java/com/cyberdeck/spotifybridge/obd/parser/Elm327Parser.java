@@ -2,7 +2,10 @@ package com.cyberdeck.spotifybridge.obd.parser;
 
 import com.cyberdeck.spotifybridge.obd.models.ObdPid;
 import com.cyberdeck.spotifybridge.obd.models.ObdResult;
+import com.cyberdeck.spotifybridge.obd.models.ObdDtc;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public final class Elm327Parser {
@@ -57,6 +60,45 @@ public final class Elm327Parser {
         } catch (NumberFormatException error) {
             return -1;
         }
+    }
+
+    public List<ObdDtc> parseDtcs(String command, String raw, boolean pending) {
+        String upper = raw == null ? "" : raw.toUpperCase(Locale.US);
+        ObdResult.Status status = explicitStatus(upper);
+        if (status == ObdResult.Status.NO_DATA || status == ObdResult.Status.UNSUPPORTED) {
+            return new ArrayList<>();
+        }
+        if (status != null && status != ObdResult.Status.SEARCHING) {
+            throw new IllegalArgumentException("Resposta DTC invalida: " + status);
+        }
+
+        String normalized = normalize(command, raw);
+        String marker = pending ? "47" : "43";
+        int index = normalized.indexOf(marker);
+        if (index < 0) throw new IllegalArgumentException("Resposta DTC sem " + marker);
+        String bytes = normalized.substring(index + marker.length());
+        if ((bytes.length() & 1) != 0 || !bytes.matches("[0-9A-F]*"))
+            throw new IllegalArgumentException("Bytes DTC invalidos");
+
+        ArrayList<ObdDtc> result = new ArrayList<>();
+        for (int offset = 0; offset + 4 <= bytes.length(); offset += 4) {
+            int first = Integer.parseInt(bytes.substring(offset, offset + 2), 16);
+            int second = Integer.parseInt(bytes.substring(offset + 2, offset + 4), 16);
+            if (first == 0 && second == 0) continue;
+            result.add(new ObdDtc(decodeDtc(first, second), pending));
+            if (result.size() == 8) break;
+        }
+        return result;
+    }
+
+    private String decodeDtc(int first, int second) {
+        char[] type = {'P', 'C', 'B', 'U'};
+        String hex = "0123456789ABCDEF";
+        return "" + type[(first >> 6) & 0x03]
+                + hex.charAt((first >> 4) & 0x03)
+                + hex.charAt(first & 0x0F)
+                + hex.charAt((second >> 4) & 0x0F)
+                + hex.charAt(second & 0x0F);
     }
 
     private ObdResult.Status explicitStatus(String raw) {

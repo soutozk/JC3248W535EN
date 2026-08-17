@@ -29,6 +29,7 @@ Para manter a apresentacao ativa mesmo com um cliente BLE conectado, altere temp
 - Servico: `f38a0001-82eb-4a73-a38c-ce98c9438012`
 - Telemetria: `f38a0006-82eb-4a73-a38c-ce98c9438012`
 - Estado: `f38a0007-82eb-4a73-a38c-ce98c9438012`
+- Codigos DTC: `f38a0008-82eb-4a73-a38c-ce98c9438012`
 
 Os quadros usam little-endian, numero de sequencia, mascara de validade e CRC-16/CCITT. O
 firmware descarta tamanhos, versoes, CRCs, sequencias e valores fora das faixas aceitas.

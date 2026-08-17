@@ -23,12 +23,14 @@ static const ble_uuid128_t kTelemetryUuid = BLE_UUID128_INIT(
     0x12,0x80,0x43,0xc9,0x98,0xce,0x8c,0xa3,0x73,0x4a,0xeb,0x82,0x06,0x00,0x8a,0xf3);
 static const ble_uuid128_t kStatusUuid = BLE_UUID128_INIT(
     0x12,0x80,0x43,0xc9,0x98,0xce,0x8c,0xa3,0x73,0x4a,0xeb,0x82,0x07,0x00,0x8a,0xf3);
+static const ble_uuid128_t kDtcUuid = BLE_UUID128_INIT(
+    0x12,0x80,0x43,0xc9,0x98,0xce,0x8c,0xa3,0x73,0x4a,0xeb,0x82,0x08,0x00,0x8a,0xf3);
 
 static int accessCb(uint16_t, uint16_t attr, ble_gatt_access_ctxt *ctxt, void *)
 {
     if(ctxt->op != BLE_GATT_ACCESS_OP_WRITE_CHR) return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
     const uint16_t length = OS_MBUF_PKTLEN(ctxt->om);
-    uint8_t buffer[sizeof(obd::protocol::TelemetryFrame)]{};
+    uint8_t buffer[sizeof(obd::protocol::DtcFrame)]{};
     if(length > sizeof(buffer) || ble_hs_mbuf_to_flat(ctxt->om, buffer, length, nullptr) != 0)
         return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
     const uint32_t now = static_cast<uint32_t>(esp_timer_get_time() / 1000);
@@ -44,6 +46,12 @@ static int accessCb(uint16_t, uint16_t attr, ble_gatt_access_ctxt *ctxt, void *)
            !obd::acceptStatusFrame(frame, now)) return BLE_ATT_ERR_UNLIKELY;
         return 0;
     }
+    if(ble_uuid_cmp(ctxt->chr->uuid, &kDtcUuid.u) == 0) {
+        obd::protocol::DtcFrame frame;
+        if(!obd::protocol::validateDtc(buffer, length, frame) ||
+           !obd::acceptDtcFrame(frame, now)) return BLE_ATT_ERR_UNLIKELY;
+        return 0;
+    }
     (void) attr;
     return BLE_ATT_ERR_UNLIKELY;
 }
@@ -52,6 +60,8 @@ static const ble_gatt_chr_def kCharacteristics[] = {
     {.uuid=&kTelemetryUuid.u, .access_cb=accessCb,
      .flags=BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_NO_RSP},
     {.uuid=&kStatusUuid.u, .access_cb=accessCb,
+     .flags=BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_NO_RSP},
+    {.uuid=&kDtcUuid.u, .access_cb=accessCb,
      .flags=BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_NO_RSP},
     {0}
 };

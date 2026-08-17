@@ -41,11 +41,22 @@ struct ConnectionStatus {
     uint32_t receivedAtMs = 0;
 };
 
+struct DtcSnapshot {
+    uint32_t sequence = 0;
+    uint32_t receivedAtMs = 0;
+    uint8_t currentCount = 0;
+    uint8_t pendingCount = 0;
+    char current[8][6] = {};
+    char pending[8][6] = {};
+};
+
 void telemetryInit();
 bool acceptTelemetryFrame(const protocol::TelemetryFrame &frame, uint32_t nowMs);
 bool acceptStatusFrame(const protocol::StatusFrame &frame, uint32_t nowMs);
+bool acceptDtcFrame(const protocol::DtcFrame &frame, uint32_t nowMs);
 ObdTelemetry telemetrySnapshot(uint32_t nowMs);
 ConnectionStatus connectionSnapshot();
+DtcSnapshot dtcSnapshot();
 void telemetrySetBleConnected(bool connected);
 void telemetrySimulate(uint32_t nowMs);
 bool telemetryPresentationActive();

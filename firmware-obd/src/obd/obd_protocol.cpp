@@ -38,6 +38,28 @@ bool validateStatus(const uint8_t *data, size_t length, StatusFrame &frame)
     return validate(data, length, kStatusType, frame);
 }
 
+bool validateDtc(const uint8_t *data, size_t length, DtcFrame &frame)
+{
+    if(!validate(data, length, kDtcType, frame)) return false;
+    if(frame.currentCount > 8 || frame.pendingCount > 8) return false;
+    for(int group = 0; group < 2; ++group) {
+        const uint8_t count = group == 0 ? frame.currentCount : frame.pendingCount;
+        const char (*codes)[6] = group == 0 ? frame.current : frame.pending;
+        for(uint8_t i = 0; i < count; ++i) {
+            if(codes[i][0] == '\0' || codes[i][5] != '\0') return false;
+            if(codes[i][0] != 'P' && codes[i][0] != 'C' &&
+               codes[i][0] != 'B' && codes[i][0] != 'U') return false;
+            if(codes[i][1] < '0' || codes[i][1] > '3') return false;
+            for(int j = 2; j < 5; ++j) {
+                const char c = codes[i][j];
+                const bool digit = c >= '0' && c <= '9';
+                const bool hex = c >= 'A' && c <= 'F';
+                if(!digit && !hex) return false;
+            }
+        }
+    }
+    return true;
+}
+
 } // namespace protocol
 } // namespace obd
-

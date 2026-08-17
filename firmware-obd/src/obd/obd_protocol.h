@@ -10,6 +10,7 @@ constexpr uint16_t kMagic = 0x424f; // bytes: 'O', 'B'
 constexpr uint8_t kVersion = 1;
 constexpr uint8_t kTelemetryType = 1;
 constexpr uint8_t kStatusType = 2;
+constexpr uint8_t kDtcType = 3;
 
 #pragma pack(push, 1)
 struct TelemetryFrame {
@@ -50,15 +51,31 @@ struct StatusFrame {
     uint16_t lastError;
     uint16_t crc16;
 };
+
+struct DtcFrame {
+    uint16_t magic;
+    uint8_t version;
+    uint8_t type;
+    uint16_t size;
+    uint32_t sequence;
+    uint64_t sourceTimestampMs;
+    uint8_t currentCount;
+    uint8_t pendingCount;
+    uint16_t reserved;
+    char current[8][6];
+    char pending[8][6];
+    uint16_t crc16;
+};
 #pragma pack(pop)
 
 static_assert(sizeof(TelemetryFrame) == 48, "Telemetry protocol layout changed");
 static_assert(sizeof(StatusFrame) == 36, "Status protocol layout changed");
+static_assert(sizeof(DtcFrame) == 120, "DTC protocol layout changed");
 
 uint16_t crc16Ccitt(const uint8_t *data, size_t length);
 bool validateTelemetry(const uint8_t *data, size_t length, TelemetryFrame &frame);
 bool validateStatus(const uint8_t *data, size_t length, StatusFrame &frame);
+bool validateDtc(const uint8_t *data, size_t length, DtcFrame &frame);
 
 } // namespace protocol
 } // namespace obd
-

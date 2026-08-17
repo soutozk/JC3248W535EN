@@ -9,6 +9,7 @@ import com.cyberdeck.spotifybridge.obd.connection.Elm327Connection;
 import com.cyberdeck.spotifybridge.obd.diagnostics.ObdLogBuffer;
 import com.cyberdeck.spotifybridge.obd.elm327.Elm327Initializer;
 import com.cyberdeck.spotifybridge.obd.models.ObdConnectionState;
+import com.cyberdeck.spotifybridge.obd.models.ObdDtc;
 import com.cyberdeck.spotifybridge.obd.models.ObdPid;
 import com.cyberdeck.spotifybridge.obd.models.ObdResult;
 import com.cyberdeck.spotifybridge.obd.parser.Elm327Parser;
@@ -17,13 +18,20 @@ import com.cyberdeck.spotifybridge.obd.repository.ObdRepository;
 
 import java.io.IOException;
 import java.util.EnumSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public final class ObdManager implements ObdPollingScheduler.Listener {
-    public interface Listener { void onObdStatus(String status); }
+    public interface Listener {
+        void onObdStatus(String status);
+        default void onObdData(ObdRepository.Snapshot snapshot) {}
+        default void onDtcData(List<ObdDtc> codes) {}
+    }
 
     private final BleBridge ble;
     private final ObdLogBuffer logs = new ObdLogBuffer(250);
@@ -42,8 +50,10 @@ public final class ObdManager implements ObdPollingScheduler.Listener {
     private volatile int lastError;
     private volatile int packetSequence;
     private volatile long lastSentRepositorySequence = -1;
+    private volatile long lastTelemetrySentAtMs;
     private volatile long lastStatusSentAtMs;
     private volatile BluetoothDevice selectedDevice;
+    private volatile List<ObdDtc> dtcs = Collections.emptyList();
     private volatile boolean stopped;
     private volatile int reconnectAttempt;
     private Listener listener;
@@ -58,6 +68,12 @@ public final class ObdManager implements ObdPollingScheduler.Listener {
     public void setListener(Listener listener) { this.listener = listener; }
     public ObdConnectionState getState() { return state; }
     public ObdLogBuffer logs() { return logs; }
+    public ObdRepository.Snapshot snapshot() { return repository.snapshot(System.currentTimeMillis()); }
+    public List<ObdDtc> dtcs() { return dtcs; }
+
+    public void readDtc() {
+        control.execute(this::readDtcInternal);
+    }
 
     public void connect(BluetoothDevice device) {
         selectedDevice = device;
@@ -70,6 +86,9 @@ public final class ObdManager implements ObdPollingScheduler.Listener {
         stopped = true;
         if (scheduler != null) scheduler.stop();
         elm.close();
+        dtcs = Collections.emptyList();
+        Listener current = listener;
+        if (current != null) current.onDtcData(dtcs);
         setState(ObdConnectionState.DISCONNECTED, "OBD desconectado");
     }
 
@@ -82,6 +101,9 @@ public final class ObdManager implements ObdPollingScheduler.Listener {
     private void connectInternal() {
         if (stopped || selectedDevice == null) return;
         try {
+            dtcs = Collections.emptyList();
+            Listener resetListener = listener;
+            if (resetListener != null) resetListener.onDtcData(dtcs);
             setState(reconnectAttempt == 0 ? ObdConnectionState.CONNECTING_ELM : ObdConnectionState.RECONNECTING,
                     "Conectando ao ELM327...");
             elm.connect(selectedDevice);
@@ -123,6 +145,42 @@ public final class ObdManager implements ObdPollingScheduler.Listener {
         return supported;
     }
 
+    private void readDtcInternal() {
+        if (stopped || !elm.isConnected() ||
+                (state != ObdConnectionState.READY && state != ObdConnectionState.DEGRADED)) {
+            setState(state, "Conecte a ECU antes de ler os codigos");
+            return;
+        }
+        try {
+            ArrayList<ObdDtc> result = new ArrayList<>();
+            try {
+                result.addAll(parser.parseDtcs("03", elm.execute("03", 5000), false));
+            } catch (IllegalArgumentException error) {
+                logs.add("DTC atuais invalidos: " + error.getMessage());
+            }
+            try {
+                result.addAll(parser.parseDtcs("07", elm.execute("07", 5000), true));
+            } catch (IllegalArgumentException error) {
+                logs.add("DTC pendentes indisponiveis: " + error.getMessage());
+            }
+            dtcs = Collections.unmodifiableList(result);
+            logs.add("DTC lidos: " + result.size());
+            Listener current = listener;
+            if (current != null) current.onDtcData(dtcs);
+            if (ble.isObdDtcReady()) {
+                ble.sendObdDtc(encoder.dtc(dtcs, ++packetSequence, System.currentTimeMillis()));
+                logs.add("DTC transferidos para ESP32: " + result.size());
+            } else {
+                logs.add("DTC nao transferidos: caracteristica BLE ausente");
+            }
+            setState(state, result.isEmpty() ? "Nenhum codigo de falha encontrado" :
+                    result.size() + " codigo(s) de falha encontrado(s)");
+        } catch (IOException error) {
+            lastError = 3;
+            scheduleReconnect("Leitura DTC: " + error.getMessage());
+        }
+    }
+
     @Override
     public void onResult(ObdResult result, long latency) {
         latencyMs = (int) Math.min(65535, latency);
@@ -133,6 +191,8 @@ public final class ObdManager implements ObdPollingScheduler.Listener {
             timeouts++;
             if (timeouts % 3 == 0) setState(ObdConnectionState.DEGRADED, "OBD degradado: timeouts");
         }
+        Listener current = listener;
+        if (current != null) current.onObdData(repository.snapshot(System.currentTimeMillis()));
     }
 
     @Override
@@ -154,8 +214,9 @@ public final class ObdManager implements ObdPollingScheduler.Listener {
         if (!ble.isObdReady()) return;
         long now = System.currentTimeMillis();
         ObdRepository.Snapshot snapshot = repository.snapshot(now);
-        if (snapshot.sequence != lastSentRepositorySequence) {
+        if (snapshot.sequence != lastSentRepositorySequence || now - lastTelemetrySentAtMs >= 500) {
             lastSentRepositorySequence = snapshot.sequence;
+            lastTelemetrySentAtMs = now;
             ble.sendObdTelemetry(encoder.telemetry(snapshot, ++packetSequence));
         }
         if (now - lastStatusSentAtMs >= 1000) {

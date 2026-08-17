@@ -19,6 +19,12 @@ faz polling adaptativo e reconecta com backoff quando o transporte cai. RPM, vel
 temperatura, carga, acelerador, tensao, combustivel, ar de admissao, MAP, MAF e tempo de motor
 sao enviados quando suportados pela ECU.
 
+Na tela OBD2, o botao `LER CODIGOS DA ECU` consulta os codigos atuais (modo 03) e pendentes
+(modo 07). Os codigos sao mostrados no app e enviados para a caracteristica BLE DTC
+`F38A0008-82EB-4A73-A38C-CE98C9438012`; a tela de diagnostico da ESP32 tambem lista os codigos
+recebidos. Para transferir o quadro DTC de 120 bytes, a conexao BLE precisa negociar MTU de
+no minimo 123 bytes.
+
 ## Como testar
 
 1. Grave o firmware atualizado na ESP32.

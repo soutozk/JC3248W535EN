@@ -11,6 +11,7 @@ namespace obd {
 static SemaphoreHandle_t s_mutex = nullptr;
 static ObdTelemetry s_data;
 static ConnectionStatus s_status;
+static DtcSnapshot s_dtc;
 static uint32_t s_statusSequence = 0;
 static bool s_bleConnected = false;
 
@@ -91,6 +92,25 @@ bool acceptStatusFrame(const protocol::StatusFrame &f, uint32_t now)
     return true;
 }
 
+bool acceptDtcFrame(const protocol::DtcFrame &f, uint32_t now)
+{
+    telemetryInit();
+    if(f.currentCount > 8 || f.pendingCount > 8) return false;
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    if(!newer(f.sequence, s_dtc.sequence)) {
+        xSemaphoreGive(s_mutex);
+        return false;
+    }
+    s_dtc.sequence = f.sequence;
+    s_dtc.receivedAtMs = now;
+    s_dtc.currentCount = f.currentCount;
+    s_dtc.pendingCount = f.pendingCount;
+    memcpy(s_dtc.current, f.current, sizeof(s_dtc.current));
+    memcpy(s_dtc.pending, f.pending, sizeof(s_dtc.pending));
+    xSemaphoreGive(s_mutex);
+    return true;
+}
+
 ObdTelemetry telemetrySnapshot(uint32_t now)
 {
     telemetryInit();
@@ -116,6 +136,15 @@ ConnectionStatus connectionSnapshot()
     return copy;
 }
 
+DtcSnapshot dtcSnapshot()
+{
+    telemetryInit();
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    DtcSnapshot copy = s_dtc;
+    xSemaphoreGive(s_mutex);
+    return copy;
+}
+
 void telemetrySetBleConnected(bool connected)
 {
     telemetryInit();
@@ -123,6 +152,7 @@ void telemetrySetBleConnected(bool connected)
     s_bleConnected = connected;
     s_status.esp32Connected = connected;
     s_data = {};
+    s_dtc = {};
     if(connected) {
         // O contador do Android reinicia junto com o processo. Uma nova sessao BLE
         // precisa aceitar sua primeira sequencia mesmo que seja menor que a anterior.

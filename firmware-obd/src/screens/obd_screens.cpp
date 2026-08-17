@@ -8,6 +8,7 @@
 #include "lvgl.h"
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 namespace obd {
 namespace screens {
@@ -244,9 +245,32 @@ void showSettings()
 
 void showDiagnostics()
 {
-    lv_obj_t *screen=newScreen("DIAGNOSTICO");addBack(screen);const ConnectionStatus s=connectionSnapshot();const ObdTelemetry t=telemetrySnapshot(nowMs());
-    lv_obj_t*p=ui::theme::create_panel(screen);lv_obj_set_size(p,430,240);lv_obj_align(p,LV_ALIGN_CENTER,0,18);char b[384];
-    snprintf(b,sizeof(b),"Estado: %s\nModo apresentacao: %s\nELM conectado: %s\nECU respondendo: %s\nESP32 BLE: %s\nProtocolo: %s\nLatencia: %u ms\nTimeouts: %u\nUltimo erro: %u\nSequencia: %lu\nPIDs validos: 0x%03X\nPIDs suportados: 0x%03X",connectionStateName(s.state),telemetryPresentationActive()?"sim":"nao",s.elmConnected?"sim":"nao",s.ecuConnected?"sim":"nao",s.esp32Connected?"sim":"nao",s.protocol[0]?s.protocol:"N/D",s.latencyMs,s.timeouts,s.lastError,static_cast<unsigned long>(t.sequence),t.validMask,t.supportedMask);
+    lv_obj_t *screen = newScreen("DIAGNOSTICO");
+    addBack(screen);
+    const ConnectionStatus s = connectionSnapshot();
+    const ObdTelemetry t = telemetrySnapshot(nowMs());
+    const DtcSnapshot d = dtcSnapshot();
+    char current[64] = {};
+    char pending[64] = {};
+    for(uint8_t i = 0; i < d.currentCount; ++i) {
+        if(i > 0) strncat(current, " ", sizeof(current) - strlen(current) - 1);
+        strncat(current, d.current[i], sizeof(current) - strlen(current) - 1);
+    }
+    for(uint8_t i = 0; i < d.pendingCount; ++i) {
+        if(i > 0) strncat(pending, " ", sizeof(pending) - strlen(pending) - 1);
+        strncat(pending, d.pending[i], sizeof(pending) - strlen(pending) - 1);
+    }
+    lv_obj_t *p = ui::theme::create_panel(screen);
+    lv_obj_set_size(p, 430, 280);
+    lv_obj_align(p, LV_ALIGN_CENTER, 0, 10);
+    char b[768];
+    snprintf(b, sizeof(b), "Estado: %s\nModo apresentacao: %s\nELM conectado: %s\nECU respondendo: %s\nESP32 BLE: %s\nProtocolo: %s\nLatencia: %u ms\nTimeouts: %u\nUltimo erro: %u\nSequencia: %lu\nPIDs validos: 0x%03X\nPIDs suportados: 0x%03X\nDTC atuais (%u): %s\nDTC pendentes (%u): %s",
+             connectionStateName(s.state), telemetryPresentationActive() ? "sim" : "nao",
+             s.elmConnected ? "sim" : "nao", s.ecuConnected ? "sim" : "nao",
+             s.esp32Connected ? "sim" : "nao", s.protocol[0] ? s.protocol : "N/D",
+             s.latencyMs, s.timeouts, s.lastError, static_cast<unsigned long>(t.sequence),
+             t.validMask, t.supportedMask, d.currentCount, current[0] ? current : "nenhum",
+             d.pendingCount, pending[0] ? pending : "nenhum");
     lv_obj_t*l=label(p,b,ui::theme::font_small(),ui::theme::colors().text,LV_ALIGN_TOP_LEFT,6,6);lv_obj_set_style_text_line_space(l,5,0);load(screen);
 }
 

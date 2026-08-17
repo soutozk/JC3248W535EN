@@ -20,7 +20,8 @@ public final class Elm327Initializer {
     public Elm327Initializer(ObdLogBuffer logs) { this.logs = logs; }
 
     public Result initialize(Elm327Connection connection) throws IOException {
-        String version = send(connection, "ATZ", 2500, false);
+        // Some ELM327 clones take 3-4 seconds to reboot after ATZ.
+        String version = send(connection, "ATZ", 5000, false);
         send(connection, "ATE0", 1000, false);
         send(connection, "ATL0", 1000, true);
         send(connection, "ATS0", 1000, true);

@@ -58,6 +58,8 @@ public class BleBridge {
             UUID.fromString("f38a0006-82eb-4a73-a38c-ce98c9438012");
     private static final UUID OBD_STATUS_UUID =
             UUID.fromString("f38a0007-82eb-4a73-a38c-ce98c9438012");
+    private static final UUID OBD_DTC_UUID =
+            UUID.fromString("f38a0008-82eb-4a73-a38c-ce98c9438012");
     private static final UUID CLIENT_CONFIG_UUID =
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
@@ -77,6 +79,8 @@ public class BleBridge {
     private volatile BluetoothGattCharacteristic coverDataCharacteristic;
     private volatile BluetoothGattCharacteristic obdTelemetryCharacteristic;
     private volatile BluetoothGattCharacteristic obdStatusCharacteristic;
+    private volatile BluetoothGattCharacteristic obdDtcCharacteristic;
+    private volatile int negotiatedMtu = 23;
 
     private boolean scanning;
     private boolean writeInProgress;
@@ -107,7 +111,8 @@ public class BleBridge {
     }
 
     public boolean isObdReady() {
-        return gatt != null && obdTelemetryCharacteristic != null && obdStatusCharacteristic != null;
+        return gatt != null && negotiatedMtu >= 51
+                && obdTelemetryCharacteristic != null && obdStatusCharacteristic != null;
     }
 
     public void sendObdTelemetry(byte[] frame) {
@@ -118,10 +123,22 @@ public class BleBridge {
         sendObdFrame(obdStatusCharacteristic, frame);
     }
 
+    public boolean isObdDtcReady() {
+        return gatt != null && negotiatedMtu >= 123 && obdDtcCharacteristic != null;
+    }
+
+    public void sendObdDtc(byte[] frame) {
+        sendObdFrame(obdDtcCharacteristic, frame);
+    }
+
     private void sendObdFrame(BluetoothGattCharacteristic characteristic, byte[] frame) {
         if (characteristic == null || frame == null || frame.length == 0) return;
+        if (frame.length + 3 > negotiatedMtu) {
+            setStatus("MTU BLE insuficiente para quadro OBD (" + frame.length + " bytes)");
+            return;
+        }
         enqueueWrite(characteristic, frame,
-                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE, false);
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT, true);
         processNextWrite();
     }
 
@@ -179,6 +196,8 @@ public class BleBridge {
         coverDataCharacteristic = null;
         obdTelemetryCharacteristic = null;
         obdStatusCharacteristic = null;
+        obdDtcCharacteristic = null;
+        negotiatedMtu = 23;
         notifyConnection(false);
     }
 
@@ -416,7 +435,11 @@ public class BleBridge {
 
         @Override
         public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
+            negotiatedMtu = status == BluetoothGatt.GATT_SUCCESS ? mtu : 23;
             setStatus("MTU BLE: " + mtu + ". Descobrindo servicos...");
+            if (negotiatedMtu < 51) {
+                setStatus("MTU BLE insuficiente para telemetria OBD: " + negotiatedMtu);
+            }
             if (hasConnectPermission()) {
                 gatt.discoverServices();
             }
@@ -436,6 +459,7 @@ public class BleBridge {
             coverDataCharacteristic = service.getCharacteristic(COVER_DATA_UUID);
             obdTelemetryCharacteristic = service.getCharacteristic(OBD_TELEMETRY_UUID);
             obdStatusCharacteristic = service.getCharacteristic(OBD_STATUS_UUID);
+            obdDtcCharacteristic = service.getCharacteristic(OBD_DTC_UUID);
 
             if (trackCharacteristic == null && obdTelemetryCharacteristic == null) {
                 setStatus("Caracteristicas da ponte nao encontradas");

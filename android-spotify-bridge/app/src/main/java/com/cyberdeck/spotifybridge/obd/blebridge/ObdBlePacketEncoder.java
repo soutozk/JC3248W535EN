@@ -1,16 +1,19 @@
 package com.cyberdeck.spotifybridge.obd.blebridge;
 
 import com.cyberdeck.spotifybridge.obd.models.ObdConnectionState;
+import com.cyberdeck.spotifybridge.obd.models.ObdDtc;
 import com.cyberdeck.spotifybridge.obd.models.ObdPid;
 import com.cyberdeck.spotifybridge.obd.repository.ObdRepository;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 public final class ObdBlePacketEncoder {
     public static final int TELEMETRY_SIZE = 48;
     public static final int STATUS_SIZE = 36;
+    public static final int DTC_SIZE = 120;
 
     public byte[] telemetry(ObdRepository.Snapshot s, int packetSequence) {
         ByteBuffer b = ByteBuffer.allocate(TELEMETRY_SIZE).order(ByteOrder.LITTLE_ENDIAN);
@@ -46,6 +49,37 @@ public final class ObdBlePacketEncoder {
         b.putShort((short) clamp16(lastError));
         b.putShort(crc16(b.array(), STATUS_SIZE - 2));
         return b.array();
+    }
+
+    public byte[] dtc(List<ObdDtc> codes, int packetSequence, long nowMs) {
+        ByteBuffer b = ByteBuffer.allocate(DTC_SIZE).order(ByteOrder.LITTLE_ENDIAN);
+        b.putShort((short) 0x424f).put((byte) 1).put((byte) 3).putShort((short) DTC_SIZE);
+        b.putInt(packetSequence).putLong(nowMs);
+        int current = count(codes, false);
+        int pending = count(codes, true);
+        b.put((byte) current).put((byte) pending).putShort((short) 0);
+        writeCodes(b, codes, false);
+        writeCodes(b, codes, true);
+        b.putShort(crc16(b.array(), DTC_SIZE - 2));
+        return b.array();
+    }
+
+    private int count(List<ObdDtc> codes, boolean pending) {
+        int count = 0;
+        if (codes != null) for (ObdDtc code : codes)
+            if (code != null && code.pending == pending && count < 8) count++;
+        return count;
+    }
+
+    private void writeCodes(ByteBuffer b, List<ObdDtc> codes, boolean pending) {
+        int written = 0;
+        if (codes != null) for (ObdDtc code : codes) {
+            if (code == null || code.pending != pending || written >= 8) continue;
+            byte[] ascii = code.code.getBytes(StandardCharsets.US_ASCII);
+            for (int i = 0; i < 6; i++) b.put(i < ascii.length ? ascii[i] : (byte) 0);
+            written++;
+        }
+        while (written++ < 8) for (int i = 0; i < 6; i++) b.put((byte) 0);
     }
 
     public static short crc16(byte[] bytes, int length) {
